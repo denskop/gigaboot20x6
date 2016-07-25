@@ -61,7 +61,7 @@ out/$1.so: $2 $(EFI_CRT0) out/libstuff.a
 endef
 
 efi_app = $(eval $(call _efi_app,$(strip $1),\
-$(patsubst %.c,out/src/%.o,$2),\
-$(patsubst %.c,out/src/%.d,$2)))
+$(patsubst %.c,out/%.o,$2),\
+$(patsubst %.c,out/%.d,$2)))
 
 

@@ -48,10 +48,10 @@ include build/build.mk
 
 # declare applications here
 #$(call efi_app, hello, hello.c)
-$(call efi_app, showmem, showmem.c)
-$(call efi_app, fileio, fileio.c)
-$(call efi_app, osboot, osboot.c netboot.c netifc.c inet6.c)
-$(call efi_app, usbtest, usbtest.c)
+$(call efi_app, showmem, src/showmem.c)
+$(call efi_app, fileio, src/fileio.c)
+$(call efi_app, osboot, src/osboot.c src/netboot.c src/netifc.c src/inet6.c)
+$(call efi_app, usbtest, src/usbtest.c)
 
 ifneq ($(APP),)
 	APP := out/$(APP).efi
