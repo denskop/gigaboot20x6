@@ -15,35 +15,32 @@
 #ifndef _AX88772_H_
 #define _AX88772_H_
 
-#include <Uefi.h>
+#include <efi.h>
+#include <efilib.h>
+#include <efi_pxe.h>
 
-#include <Guid/EventGroup.h>
-
-#include <IndustryStandard/Pci.h>
-
-#include <Library/BaseMemoryLib.h>
-#include <Library/DebugLib.h>
-#include <Library/DevicePathLib.h>
-#include <Library/UefiBootServicesTableLib.h>
-#include <Library/UefiDriverEntryPoint.h>
-#include <Library/UefiLib.h>
-#include <Library/UefiRuntimeLib.h>
-
-#include <Protocol/DevicePath.h>
-#include <Protocol/LoadedImage.h>
-#include <Protocol/NetworkInterfaceIdentifier.h>
-#include <Protocol/SimpleNetwork.h>
 #include <Protocol/UsbIo.h>
 
 #define MAX_QUEUE_SIZE 50
 #define MAX_BULKIN_SIZE 16384
 #define HW_HDR_LENGTH 8
 
-
 #define MAX_LINKIDLE_THRESHOLD  20000
 
+/*
+ * Exceptionally lazy way of dealing with replacing EDK2's more elaborate debug facilities. gnu-efi
+ * has its own debug functionality in efidebug.h which uses the EFI_DEBUG define. It may be worth
+ * porting over to that at some point. TODO(cja).
+ */
+#ifdef DEBUG
+#undef DEBUG
+#endif
 
-
+#if 0
+#define DEBUG(level, fmt...) Print(fmt)
+#else
+#define DEBUG(...)
+#endif
 //------------------------------------------------------------------------------
 //  Macros
 //------------------------------------------------------------------------------
@@ -64,10 +61,10 @@
 #define DBG_EXIT_TF(Status)       ///<  Display routine with TRUE/FALSE value
 #endif  //  _MSC_VER
 
-#define USB_IS_IN_ENDPOINT(EndPointAddr)      (((EndPointAddr) & BIT7) != 0)  ///<  Return TRUE/FALSE for IN direction
-#define USB_IS_OUT_ENDPOINT(EndPointAddr)     (((EndPointAddr) & BIT7) == 0)  ///<  Return TRUE/FALSE for OUT direction
-#define USB_IS_BULK_ENDPOINT(Attribute)       (((Attribute) & (BIT0 | BIT1)) == USB_ENDPOINT_BULK)      ///<  Return TRUE/FALSE for BULK type
-#define USB_IS_INTERRUPT_ENDPOINT(Attribute)  (((Attribute) & (BIT0 | BIT1)) == USB_ENDPOINT_INTERRUPT) ///<  Return TRUE/FALSE for INTERRUPT type
+#define USB_IS_IN_ENDPOINT(EndPointAddr)      (((EndPointAddr) & (1 << 7)) != 0)  ///<  Return TRUE/FALSE for IN direction
+#define USB_IS_OUT_ENDPOINT(EndPointAddr)     (((EndPointAddr) & (1 << 7)) == 0)  ///<  Return TRUE/FALSE for OUT direction
+#define USB_IS_BULK_ENDPOINT(Attribute)       (((Attribute) & ((1 << 0) | (1 << 1))) == USB_ENDPOINT_BULK)      ///<  Return TRUE/FALSE for BULK type
+#define USB_IS_INTERRUPT_ENDPOINT(Attribute)  (((Attribute) & ((1 << 0) | (1 << 1))) == USB_ENDPOINT_INTERRUPT) ///<  Return TRUE/FALSE for INTERRUPT type
 
 
 #define PRINT(_L_STR) (gST->ConOut->OutputString(gST->ConOut,(_L_STR)))
@@ -139,6 +136,8 @@
 
 #define FreeQueueSize     10
 
+#define SIGNATURE_16(A, B)        ((A) | (B << 8))
+#define SIGNATURE_32(A, B, C, D)  (SIGNATURE_16 (A, B) | (SIGNATURE_16 (C, D) << 16))
 #define DEV_SIGNATURE     SIGNATURE_32 ('A','X','8','8')  ///<  Signature of data structures in memory
 
 #define RESET_MSEC        1000    ///<  Reset duration
@@ -296,10 +295,10 @@
 
 // asix_flags defines
 #define FLAG_NONE               0
-#define FLAG_TYPE_AX88172       BIT0
-#define FLAG_TYPE_AX88772       BIT1
-#define FLAG_TYPE_AX88772B      BIT2
-#define FLAG_EEPROM_MAC         BIT3  // initial mac address in eeprom
+#define FLAG_TYPE_AX88172       (1 << 0)
+#define FLAG_TYPE_AX88772       (1 << 1)
+#define FLAG_TYPE_AX88772B      (1 << 2)
+#define FLAG_EEPROM_MAC         (1 << 3)  // initial mac address in eeprom
 
 //------------------------------------------------------------------------------
 //  Data Types
@@ -364,8 +363,8 @@ typedef struct {
   //
   //  Simple network protocol data
   //
-  EFI_SIMPLE_NETWORK_PROTOCOL SimpleNetwork;  ///<  Driver's network stack interface
-  EFI_SIMPLE_NETWORK_PROTOCOL SimpleNetwork_Backup;
+  EFI_SIMPLE_NETWORK SimpleNetwork;  ///<  Driver's network stack interface
+  EFI_SIMPLE_NETWORK SimpleNetwork_Backup;
   EFI_SIMPLE_NETWORK_MODE SimpleNetworkData;  ///<  Data for simple network
 
   //
@@ -394,11 +393,9 @@ typedef struct {
   INT8 MulticastHash[8];
   EFI_MAC_ADDRESS MAC;
   BOOLEAN bHavePkt;
- 
-  EFI_DEVICE_PATH_PROTOCOL                  *MyDevPath;
-  
-  EFI_DRIVER_BINDING_PROTOCOL * DrvBind;
-  
+
+  EFI_DEVICE_PATH                  *MyDevPath;
+
   RX_PKT * QueueHead;
   RX_PKT * pNextFill;
   RX_PKT * pFirstFill;
@@ -436,7 +433,7 @@ typedef struct {
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -444,7 +441,7 @@ typedef struct {
 EFI_STATUS
 EFIAPI
 SN_Reset (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   IN BOOLEAN bExtendedVerification
   );
 
@@ -472,7 +469,7 @@ SN_Setup (
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_ALREADY_STARTED   The network interface was already started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -480,12 +477,12 @@ SN_Setup (
 EFI_STATUS
 EFIAPI
 SN_Start (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork
   );
 
 /**
   Set the MAC address.
-  
+
   This function modifies or resets the current station address of a
   network interface.  If Reset is TRUE, then the current station address
   is set ot the network interface's permanent address.  If Reset if FALSE
@@ -504,7 +501,7 @@ SN_Start (
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -512,7 +509,7 @@ SN_Start (
 EFI_STATUS
 EFIAPI
 SN_StationAddress (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   IN BOOLEAN bReset,
   IN EFI_MAC_ADDRESS * pNew
   );
@@ -535,7 +532,7 @@ SN_StationAddress (
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_BUFFER_TOO_SMALL  The pStatisticsTable is NULL or the buffer is too small.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -543,7 +540,7 @@ SN_StationAddress (
 EFI_STATUS
 EFIAPI
 SN_Statistics (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   IN BOOLEAN bReset,
   IN OUT UINTN * pStatisticsSize,
   OUT EFI_NETWORK_STATISTICS * pStatisticsTable
@@ -558,7 +555,7 @@ SN_Statistics (
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -566,7 +563,7 @@ SN_Statistics (
 EFI_STATUS
 EFIAPI
 SN_Stop (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork
   );
 
 /**
@@ -579,7 +576,7 @@ SN_Stop (
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -587,7 +584,7 @@ SN_Stop (
 EFI_STATUS
 EFIAPI
 SN_Shutdown (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork
   );
 
 /**
@@ -629,14 +626,14 @@ SN_Shutdown (
   @retval EFI_NOT_READY         The network interface is too busy to accept this transmit request.
   @retval EFI_BUFFER_TOO_SMALL  The BufferSize parameter is too small.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
 
 **/
 EFI_STATUS
 EFIAPI
 SN_Transmit (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   IN UINTN HeaderSize,
   IN UINTN BufferSize,
   IN VOID * pBuffer,
@@ -908,8 +905,8 @@ Ax88772UsbCommand (
 // EFI Component Name Protocol Support
 //------------------------------------------------------------------------------
 
-extern EFI_COMPONENT_NAME_PROTOCOL   gComponentName;  ///<  Component name protocol declaration
-extern EFI_COMPONENT_NAME2_PROTOCOL  gComponentName2; ///<  Component name 2 protocol declaration
+extern EFI_COMPONENT_NAME   gComponentName;  ///<  Component name protocol declaration
+extern EFI_COMPONENT_NAME2  gComponentName2; ///<  Component name 2 protocol declaration
 
 /**
   Retrieves a Unicode string that is the user readable name of the driver.
@@ -921,8 +918,8 @@ extern EFI_COMPONENT_NAME2_PROTOCOL  gComponentName2; ///<  Component name 2 pro
   by This does not support the language specified by Language,
   then EFI_UNSUPPORTED is returned.
 
-  @param [in] pThis             A pointer to the EFI_COMPONENT_NAME2_PROTOCOL or
-                                EFI_COMPONENT_NAME_PROTOCOL instance.
+  @param [in] pThis             A pointer to the EFI_COMPONENT_NAME2 or
+                                EFI_COMPONENT_NAME instance.
   @param [in] pLanguage         A pointer to a Null-terminated ASCII string
                                 array indicating the language. This is the
                                 language of the driver name that the caller is
@@ -948,7 +945,7 @@ extern EFI_COMPONENT_NAME2_PROTOCOL  gComponentName2; ///<  Component name 2 pro
 EFI_STATUS
 EFIAPI
 GetDriverName (
-  IN  EFI_COMPONENT_NAME_PROTOCOL * pThis,
+  IN  EFI_COMPONENT_NAME * pThis,
   IN  CHAR8 * pLanguage,
   OUT CHAR16 ** ppDriverName
   );
@@ -967,8 +964,8 @@ GetDriverName (
   then EFI_UNSUPPORTED is returned.  If the driver specified by This does not
   support the language specified by Language, then EFI_UNSUPPORTED is returned.
 
-  @param [in] pThis             A pointer to the EFI_COMPONENT_NAME2_PROTOCOL or
-                                EFI_COMPONENT_NAME_PROTOCOL instance.
+  @param [in] pThis             A pointer to the EFI_COMPONENT_NAME2 or
+                                EFI_COMPONENT_NAME instance.
   @param [in] ControllerHandle  The handle of a controller that the driver
                                 specified by This is managing.  This handle
                                 specifies the controller whose name is to be
@@ -1015,17 +1012,22 @@ GetDriverName (
 EFI_STATUS
 EFIAPI
 GetControllerName (
-  IN  EFI_COMPONENT_NAME_PROTOCOL * pThis,
+  IN  EFI_COMPONENT_NAME * pThis,
   IN  EFI_HANDLE ControllerHandle,
   IN OPTIONAL EFI_HANDLE ChildHandle,
   IN  CHAR8 * pLanguage,
   OUT CHAR16 ** ppControllerName
   );
-  
-VOID 
+
+VOID
 FillPkt2Queue (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
-  IN UINTN BufLength);
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
+  IN UINTN BufLength
+);
+
+extern EFI_BOOT_SERVICES* gBS;
+#define EFI_D_INFO D_INIT
+#define EFI_D_ERROR D_ERROR
 
 //------------------------------------------------------------------------------
 

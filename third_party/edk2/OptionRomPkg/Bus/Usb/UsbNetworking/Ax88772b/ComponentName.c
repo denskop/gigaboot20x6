@@ -17,29 +17,19 @@
 /**
   EFI Component Name Protocol declaration
 **/
-GLOBAL_REMOVE_IF_UNREFERENCED EFI_COMPONENT_NAME_PROTOCOL  gComponentName = {
+EFI_COMPONENT_NAME  gComponentName = {
   GetDriverName,
   GetControllerName,
-  "eng"
+  (CHAR8 *)"eng"
 };
 
 /**
   EFI Component Name 2 Protocol declaration
 **/
-GLOBAL_REMOVE_IF_UNREFERENCED EFI_COMPONENT_NAME2_PROTOCOL gComponentName2 = {
+EFI_COMPONENT_NAME2 gComponentName2 = {
   (EFI_COMPONENT_NAME2_GET_DRIVER_NAME) GetDriverName,
   (EFI_COMPONENT_NAME2_GET_CONTROLLER_NAME) GetControllerName,
-  "en"
-};
-
-
-/**
-  Driver name table declaration
-**/
-GLOBAL_REMOVE_IF_UNREFERENCED EFI_UNICODE_STRING_TABLE
-mDriverNameTable[] = {
-  {"eng;en", L"ASIX AX88772B Ethernet Driver 1.0"},
-  {NULL,  NULL}
+  (CHAR8 *)"en"
 };
 
 /**
@@ -53,7 +43,7 @@ mDriverNameTable[] = {
   then EFI_UNSUPPORTED is returned.
 
   @param [in] pThis             A pointer to the EFI_COMPONENT_NAME2_PROTOCOL or
-                                EFI_COMPONENT_NAME_PROTOCOL instance.
+                                EFI_COMPONENT_NAME instance.
   @param [in] pLanguage         A pointer to a Null-terminated ASCII string
                                 array indicating the language. This is the
                                 language of the driver name that the caller is
@@ -76,25 +66,20 @@ mDriverNameTable[] = {
                                 the language specified by Language.
 
 **/
+
+
 EFI_STATUS
 EFIAPI
 GetDriverName (
-  IN  EFI_COMPONENT_NAME_PROTOCOL * pThis,
+  IN  EFI_COMPONENT_NAME * pThis,
   IN  CHAR8 * pLanguage,
   OUT CHAR16 ** ppDriverName
   )
 {
-  EFI_STATUS Status;
+  EFI_STATUS status = EFI_SUCCESS;
+  *ppDriverName = L"ASIX AX88772B Ethernet Driver 1.0";
 
-  Status = LookupUnicodeString2 (
-             pLanguage,
-             pThis->SupportedLanguages,
-             mDriverNameTable,
-             ppDriverName,
-             (BOOLEAN)(pThis == &gComponentName)
-             );
-
-  return Status;
+  return status;
 }
 
 /**
@@ -111,7 +96,7 @@ GetDriverName (
   support the language specified by Language, then EFI_UNSUPPORTED is returned.
 
   @param [in] pThis             A pointer to the EFI_COMPONENT_NAME2_PROTOCOL or
-                                EFI_COMPONENT_NAME_PROTOCOL instance.
+                                EFI_COMPONENT_NAME instance.
   @param [in] ControllerHandle  The handle of a controller that the driver
                                 specified by This is managing.  This handle
                                 specifies the controller whose name is to be
@@ -158,7 +143,7 @@ GetDriverName (
 EFI_STATUS
 EFIAPI
 GetControllerName (
-  IN  EFI_COMPONENT_NAME_PROTOCOL * pThis,
+  IN  EFI_COMPONENT_NAME * pThis,
   IN  EFI_HANDLE ControllerHandle,
   IN OPTIONAL EFI_HANDLE ChildHandle,
   IN  CHAR8 * pLanguage,

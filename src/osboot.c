@@ -446,6 +446,8 @@ EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
     bs->LocateProtocol(&GraphicsOutputProtocol, NULL, (void**)&gop);
     printf("Framebuffer base is at %lx\n\n", gop->Mode->FrameBufferBase);
 
+    extern EFI_STATUS EFIAPI ax88772_init ( IN EFI_HANDLE ImageHandle, IN EFI_SYSTEM_TABLE * pSystemTable);
+    ax88772_init(img, sys);
     if (try_local_boot(img, sys) < 0) {
         goto fail;
     }
