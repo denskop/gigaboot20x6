@@ -17,12 +17,12 @@ Version:      6605c16fc8b1fd3b2085364902d1fa73aa7fad76 (post-3.0.4)
 License:      BSD-ish, see gnu-efi/README.*
 
 Local Path:   third_party/edk2/...
-Description:  headers for UEFI from Tianocore EDK II
+Description:  ax88772b UEFI driver, as well as headers for UEFI from Tianocore EDK II
 Project:      http://www.tianocore.org/edk2/
 Source:       https://github.com/tianocore/edk2
 License:      BSD-ish, see headers
 
-Local Path:   third_party/ovmf/... 
+Local Path:   third_party/ovmf/...
 Description:  UEFI Firmware Suitable for use in Qemu
 Distribution: http://www.tianocore.org/ovmf/
 Version:      OVMF-X64-r15214.zip
@@ -39,7 +39,7 @@ gnu parted and mtools are needed to generate the disk.img for Qemu
 Useful Resources & Documentation
 --------------------------------
 
-ACPI & UEFI Specifications 
+ACPI & UEFI Specifications
 http://www.uefi.org/specifications
 
 Intel 64 and IA-32 Architecture Manuals
