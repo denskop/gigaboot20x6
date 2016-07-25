@@ -1,6 +1,6 @@
-/** @file
+ /** @file
   Implement the driver binding protocol for Asix AX88772 Ethernet driver.
-                     
+
   Copyright (c) 2011-2013, Intel Corporation
   All rights reserved. This program and the accompanying materials
   are licensed and made available under the terms and conditions of the BSD License
@@ -14,6 +14,16 @@
 
 #include "Ax88772.h"
 
+/*
+ * CallerID guid appears to be an EDK2 standard to store a pointer to the Nic that
+ * the driver is working with. Replicating it here should cover its usage since
+ * the uniqueness of the GUID is all that seems to matter.
+ */
+#define EFI_STANDARD_CALLER_ID_GUID \
+  {0xC9DCF469, 0xA7C4, 0x11D5, {0x87, 0xDA, 0x00, 0x06, 0x29, 0x45, 0xC3, 0xB9}}
+EFI_GUID CallerIdProtocol = EFI_STANDARD_CALLER_ID_GUID;
+
+EFI_GUID UsbIoProtocol = EFI_USB_IO_PROTOCOL_GUID;
 ASIX_DONGLE ASIX_DONGLES[] = {
   { 0x05AC, 0x1402, FLAG_TYPE_AX88772 }, // Apple USB Ethernet Adapter
   // ASIX 88772B
@@ -35,9 +45,9 @@ ASIX_DONGLE ASIX_DONGLES[] = {
 EFI_STATUS
 EFIAPI
 DriverSupported (
-  IN EFI_DRIVER_BINDING_PROTOCOL * pThis,
+  IN EFI_DRIVER_BINDING * pThis,
   IN EFI_HANDLE Controller,
-  IN EFI_DEVICE_PATH_PROTOCOL * pRemainingDevicePath
+  IN EFI_DEVICE_PATH * pRemainingDevicePath
   )
 {
   EFI_USB_DEVICE_DESCRIPTOR Device;
@@ -50,9 +60,9 @@ DriverSupported (
   //
   Status = gBS->OpenProtocol (
                   Controller,
-                  &gEfiUsbIoProtocolGuid,
+                  &UsbIoProtocol,
                   (VOID **) &pUsbIo,
-                  pThis->DriverBindingHandle,         
+                  pThis->DriverBindingHandle,
                   Controller,
                   EFI_OPEN_PROTOCOL_BY_DRIVER
                   );
@@ -73,7 +83,6 @@ DriverSupported (
       for (Index = 0; ASIX_DONGLES[Index].VendorId != 0; Index++) {
         if (ASIX_DONGLES[Index].VendorId == Device.IdVendor &&
             ASIX_DONGLES[Index].ProductId == Device.IdProduct) {
-              DEBUG ((EFI_D_INFO, "Found the AX88772B\r\n"));
               break;
         }
       }
@@ -81,13 +90,13 @@ DriverSupported (
       if (ASIX_DONGLES[Index].VendorId == 0)
          Status = EFI_UNSUPPORTED;
     }
-   
+
     //
     //  Done with the USB stack
     //
     gBS->CloseProtocol (
            Controller,
-           &gEfiUsbIoProtocolGuid,
+           &UsbIoProtocol,
            pThis->DriverBindingHandle,
            Controller
            );
@@ -113,21 +122,21 @@ DriverSupported (
 EFI_STATUS
 EFIAPI
 DriverStart (
-  IN EFI_DRIVER_BINDING_PROTOCOL * pThis,
+  IN EFI_DRIVER_BINDING * pThis,
   IN EFI_HANDLE Controller,
-  IN EFI_DEVICE_PATH_PROTOCOL * pRemainingDevicePath
+  IN EFI_DEVICE_PATH * pRemainingDevicePath
   )
 {
 
-	EFI_STATUS						Status;
-	NIC_DEVICE						*pNicDevice;
-	UINTN							LengthInBytes;
-	EFI_DEVICE_PATH_PROTOCOL        *ParentDevicePath = NULL;
-	MAC_ADDR_DEVICE_PATH            MacDeviceNode;
-        EFI_USB_DEVICE_DESCRIPTOR       Device;
-        UINT32                          Index;
+    EFI_STATUS						Status;
+    NIC_DEVICE						*pNicDevice;
+    UINTN							LengthInBytes;
+    EFI_DEVICE_PATH                 *ParentDevicePath = NULL;
+    MAC_ADDR_DEVICE_PATH            MacDeviceNode;
+    EFI_USB_DEVICE_DESCRIPTOR       Device;
+    UINT32                          Index;
 
-  //
+    //
 	//  Allocate the device structure
 	//
 	LengthInBytes = sizeof ( *pNicDevice );
@@ -138,11 +147,11 @@ DriverStart (
                   );
 
 	if (EFI_ERROR (Status)) {
-		DEBUG ((EFI_D_ERROR, "gBS->AllocatePool:pNicDevice ERROR Status = %r\n", Status));
+		DEBUG (D_ERROR, L"gBS->AllocatePool:pNicDevice ERROR Status = %r\n", Status);
 		goto EXIT;
 	}
-	
-	//
+
+  //
   //  Set the structure signature
   //
   ZeroMem ( pNicDevice, LengthInBytes );
@@ -150,7 +159,7 @@ DriverStart (
 
 	Status = gBS->OpenProtocol (
                     Controller,
-                    &gEfiUsbIoProtocolGuid,
+                    &UsbIoProtocol,
                     (VOID **) &pNicDevice->pUsbIo,
                     pThis->DriverBindingHandle,
                     Controller,
@@ -158,7 +167,7 @@ DriverStart (
                     );
 
 	if (EFI_ERROR (Status)) {
-		DEBUG ((EFI_D_ERROR, "gBS->OpenProtocol:EFI_USB_IO_PROTOCOL ERROR Status = %r\n", Status));
+		DEBUG (D_ERROR, L"gBS->OpenProtocol:EFI_USB_IO_PROTOCOL ERROR Status = %r\n", Status);
 		gBS->FreePool ( pNicDevice );
 		goto EXIT;
 	}
@@ -169,10 +178,10 @@ DriverStart (
 	Status = SN_Setup ( pNicDevice );
 
 	if (EFI_ERROR(Status)){
-	   DEBUG ((EFI_D_ERROR, "SN_Setup ERROR Status = %r\n", Status));
+	   DEBUG (D_ERROR, L"SN_Setup ERROR Status = %r\n", Status);
 	   gBS->CloseProtocol (
 					Controller,
-					&gEfiUsbIoProtocolGuid,
+					&UsbIoProtocol,
 					pThis->DriverBindingHandle,
 					Controller
 					);
@@ -184,7 +193,7 @@ DriverStart (
   if (EFI_ERROR ( Status )) {
      gBS->CloseProtocol (
                Controller,
-               &gEfiUsbIoProtocolGuid,
+               &UsbIoProtocol,
                pThis->DriverBindingHandle,
                Controller
                );
@@ -204,7 +213,7 @@ DriverStart (
       if (ASIX_DONGLES[Index].VendorId == 0) {
          gBS->CloseProtocol (
                    Controller,
-                   &gEfiUsbIoProtocolGuid,
+                   &UsbIoProtocol,
                    pThis->DriverBindingHandle,
                    Controller
                    );
@@ -217,21 +226,20 @@ DriverStart (
 
 	//
   // Set Device Path
-  //  			
+  //
   Status = gBS->OpenProtocol (
                   Controller,
-                  &gEfiDevicePathProtocolGuid,
+                  &DevicePathProtocol,
                   (VOID **) &ParentDevicePath,
 				          pThis->DriverBindingHandle,
                   Controller,
                   EFI_OPEN_PROTOCOL_BY_DRIVER
                   );
 	if (EFI_ERROR(Status)) {
-        DEBUG ((EFI_D_ERROR, "gBS->OpenProtocol:EFI_DEVICE_PATH_PROTOCOL error. Status = %r\n",
-            Status));        
+        DEBUG (D_ERROR, L"gBS->OpenProtocol:EFI_DEVICE_PATH error. Status = %r\n", Status);
 		    gBS->CloseProtocol (
 					Controller,
-					&gEfiUsbIoProtocolGuid,
+					&UsbIoProtocol,
 					pThis->DriverBindingHandle,
 					Controller
 					);
@@ -244,16 +252,16 @@ DriverStart (
   MacDeviceNode.Header.SubType = MSG_MAC_ADDR_DP;
 
   SetDevicePathNodeLength (&MacDeviceNode.Header, sizeof (MAC_ADDR_DEVICE_PATH));
-      			
+
   CopyMem (&MacDeviceNode.MacAddress,
       								&pNicDevice->SimpleNetworkData.CurrentAddress,
       								PXE_HWADDR_LEN_ETHER);
-      								
+
   MacDeviceNode.IfType = pNicDevice->SimpleNetworkData.IfType;
 
   pNicDevice->MyDevPath = AppendDevicePathNode (
                                           ParentDevicePath,
-                                          (EFI_DEVICE_PATH_PROTOCOL *) &MacDeviceNode
+                                          (EFI_DEVICE_PATH *) &MacDeviceNode
                                           );
 
 	pNicDevice->Controller = NULL;
@@ -263,26 +271,25 @@ DriverStart (
   //
   Status = gBS->InstallMultipleProtocolInterfaces (
                           &pNicDevice->Controller,
-                          &gEfiCallerIdGuid,
+                          &CallerIdProtocol,
                           pNicDevice,
-                          &gEfiSimpleNetworkProtocolGuid,            
+                          &SimpleNetworkProtocol,
                           &pNicDevice->SimpleNetwork,
-						              &gEfiDevicePathProtocolGuid,
+						              &DevicePathProtocol,
 						              pNicDevice->MyDevPath,
                           NULL
                           );
 
 	if (EFI_ERROR(Status)){
-		DEBUG ((EFI_D_ERROR, "gBS->InstallMultipleProtocolInterfaces error. Status = %r\n",
-            Status)); 
+		DEBUG (D_ERROR, L"gBS->InstallMultipleProtocolInterfaces error. Status = %r\n", Status);
 		gBS->CloseProtocol (
 					               Controller,
-					               &gEfiDevicePathProtocolGuid,
+					               &DevicePathProtocol,
 					               pThis->DriverBindingHandle,
 					               Controller);
 	   gBS->CloseProtocol (
 					Controller,
-					&gEfiUsbIoProtocolGuid,
+					&UsbIoProtocol,
 					pThis->DriverBindingHandle,
 					Controller
 					);
@@ -293,9 +300,9 @@ DriverStart (
 	//
 	// Open For Child Device
 	//
-	Status = gBS->OpenProtocol (                                                                         
+	Status = gBS->OpenProtocol (
                   Controller,
-                  &gEfiUsbIoProtocolGuid,
+                  &UsbIoProtocol,
                   (VOID **) &pNicDevice->pUsbIo,
                   pThis->DriverBindingHandle,
                   pNicDevice->Controller,
@@ -305,22 +312,22 @@ DriverStart (
 	if (EFI_ERROR(Status)){
 	   gBS->UninstallMultipleProtocolInterfaces (
               &pNicDevice->Controller,
-                          &gEfiCallerIdGuid,
+                          &CallerIdProtocol,
                           pNicDevice,
-                          &gEfiSimpleNetworkProtocolGuid,            
+                          &SimpleNetworkProtocol,
                           &pNicDevice->SimpleNetwork,
-						              &gEfiDevicePathProtocolGuid,
+						              &DevicePathProtocol,
 						              pNicDevice->MyDevPath,
                           NULL
                           );
 		gBS->CloseProtocol (
 					               Controller,
-					               &gEfiDevicePathProtocolGuid,
+					               &DevicePathProtocol,
 					               pThis->DriverBindingHandle,
 					               Controller);
 	   gBS->CloseProtocol (
 					Controller,
-					&gEfiUsbIoProtocolGuid,
+					&UsbIoProtocol,
 					pThis->DriverBindingHandle,
 					Controller
 					);
@@ -349,7 +356,7 @@ EXIT:
 EFI_STATUS
 EFIAPI
 DriverStop (
-  IN  EFI_DRIVER_BINDING_PROTOCOL * pThis,
+  IN  EFI_DRIVER_BINDING * pThis,
   IN  EFI_HANDLE Controller,
   IN  UINTN NumberOfChildren,
   IN  EFI_HANDLE * ChildHandleBuffer
@@ -357,25 +364,26 @@ DriverStop (
 {
 		BOOLEAN                                   AllChildrenStopped;
 		UINTN                                     Index;
-		EFI_SIMPLE_NETWORK_PROTOCOL				  *SimpleNetwork;
+		EFI_SIMPLE_NETWORK				  *SimpleNetwork;
 		EFI_STATUS                                Status = EFI_SUCCESS;
 		NIC_DEVICE								  *pNicDevice;
-		
+
+
 		//
 		// Complete all outstanding transactions to Controller.
 		// Don't allow any new transaction to Controller to be started.
 		//
 		if (NumberOfChildren == 0) {
-		
+
 		  Status = gBS->OpenProtocol (
 				                Controller,
-				                &gEfiSimpleNetworkProtocolGuid,
+				                &SimpleNetworkProtocol,
 				                (VOID **) &SimpleNetwork,
 				                pThis->DriverBindingHandle,
 				                Controller,
 				                EFI_OPEN_PROTOCOL_GET_PROTOCOL
 				                );
-				                
+
 			if (EFI_ERROR(Status)) {
         //
         // This is a 2nd type handle(multi-lun root), it needs to close devicepath
@@ -383,32 +391,32 @@ DriverStop (
         //
         gBS->CloseProtocol (
             Controller,
-            &gEfiDevicePathProtocolGuid,
+            &DevicePathProtocol,
             pThis->DriverBindingHandle,
             Controller
             );
         gBS->CloseProtocol (
             Controller,
-            &gEfiUsbIoProtocolGuid,
+            &UsbIoProtocol,
             pThis->DriverBindingHandle,
             Controller
             );
         return EFI_SUCCESS;
       }
-      
+
       pNicDevice = DEV_FROM_SIMPLE_NETWORK ( SimpleNetwork );
-      
+
       Status = gBS->UninstallMultipleProtocolInterfaces (
-				                  Controller,				                  
-				                  &gEfiCallerIdGuid,
+				                  Controller,
+				                  &CallerIdProtocol,
                           pNicDevice,
-                          &gEfiSimpleNetworkProtocolGuid,            
+                          &SimpleNetworkProtocol,
                           &pNicDevice->SimpleNetwork,
-						              &gEfiDevicePathProtocolGuid,
+						              &DevicePathProtocol,
 						              pNicDevice->MyDevPath,
                           NULL
                           );
-                          
+
       if (EFI_ERROR (Status)) {
         return Status;
       }
@@ -417,70 +425,69 @@ DriverStop (
 		  //
 		  Status = gBS->CloseProtocol (
 		                  Controller,
-		                  &gEfiDevicePathProtocolGuid,
+		                  &DevicePathProtocol,
 		                  pThis->DriverBindingHandle,
 		                  Controller
 		                  );
 
-		  if (EFI_ERROR(Status)){
-          DEBUG ((EFI_D_ERROR, "driver stop: gBS->CloseProtocol:EfiDevicePathProtocol error. Status %r\n", Status));
+		  if (EFI_ERROR(Status)) {
+              DEBUG (D_ERROR, L"driver stop: gBS->CloseProtocol:EfiDevicePathProtocol error. Status %r\n", Status);
 		  }
 
 		  Status = gBS->CloseProtocol (
 		                  Controller,
-		                  &gEfiUsbIoProtocolGuid,
+		                  &UsbIoProtocol,
 		                  pThis->DriverBindingHandle,
 		                  Controller
 		                  );
 
-		  if (EFI_ERROR(Status)){
-          DEBUG ((EFI_D_ERROR, "driver stop: gBS->CloseProtocol:EfiUsbIoProtocol error. Status %r\n", Status));
+		  if (EFI_ERROR(Status)) {
+              DEBUG (D_ERROR, L"driver stop: gBS->CloseProtocol:EfiUsbIoProtocol error. Status %r\n", Status);
 		  }
-      return EFI_SUCCESS;
-		} 
+          return EFI_SUCCESS;
+		}
+
 		AllChildrenStopped = TRUE;
-
 		for (Index = 0; Index < NumberOfChildren; Index++) {
-
 				Status = gBS->OpenProtocol (
 				                ChildHandleBuffer[Index],
-				                &gEfiSimpleNetworkProtocolGuid,
+				                &SimpleNetworkProtocol,
 				                (VOID **) &SimpleNetwork,
 				                pThis->DriverBindingHandle,
 				                Controller,
 				                EFI_OPEN_PROTOCOL_GET_PROTOCOL
 				                );
-				                
+
 				if (EFI_ERROR (Status)) {
           AllChildrenStopped = FALSE;
-          DEBUG ((EFI_D_ERROR, "Fail to stop No.%d multi-lun child handle when opening SimpleNetwork\n", (UINT32)Index));
+          DEBUG (D_ERROR, L"Fail to stop No.%d multi-lun child handle when opening SimpleNetwork\n", (UINT32)Index);
           continue;
-        } 
-        
+        }
+
         pNicDevice = DEV_FROM_SIMPLE_NETWORK ( SimpleNetwork );
-        
+
         gBS->CloseProtocol (
 				                    Controller,
-				                    &gEfiUsbIoProtocolGuid,
+				                    &UsbIoProtocol,
 				                    pThis->DriverBindingHandle,
 				                    ChildHandleBuffer[Index]
-				                    ); 
-				                    
+				                    );
+
 				Status = gBS->UninstallMultipleProtocolInterfaces (
-				                  ChildHandleBuffer[Index],				                  
-				                  &gEfiCallerIdGuid,
+				                  ChildHandleBuffer[Index],
+				                  &CallerIdProtocol,
                           pNicDevice,
-                          &gEfiSimpleNetworkProtocolGuid,            
+                          &SimpleNetworkProtocol,
                           &pNicDevice->SimpleNetwork,
-						              &gEfiDevicePathProtocolGuid,
+						              &DevicePathProtocol,
 						              pNicDevice->MyDevPath,
                           NULL
                           );
-                          
+
         if (EFI_ERROR (Status)) {
-            Status = gBS->OpenProtocol (                                                                         
+            Status = gBS->OpenProtocol (
                   Controller,
-                  &gEfiUsbIoProtocolGuid,
+                  &UsbIoProtocol,
                   (VOID **) &pNicDevice->pUsbIo,
                   pThis->DriverBindingHandle,
                   ChildHandleBuffer[Index],
@@ -491,7 +498,7 @@ DriverStop (
             int i;
             RX_PKT * pCurr = pNicDevice->QueueHead;
             RX_PKT * pFree;
-            
+
             for ( i = 0 ; i < MAX_QUEUE_SIZE ; i++) {
                  if ( NULL != pCurr ) {
                     pFree = pCurr;
@@ -499,7 +506,7 @@ DriverStop (
                     gBS->FreePool (pFree);
                  }
             }
-            
+
             if ( NULL != pNicDevice->pRxTest)
 						    gBS->FreePool (pNicDevice->pRxTest);
 
@@ -508,12 +515,12 @@ DriverStop (
 
            if ( NULL != pNicDevice->MyDevPath)
 					       gBS->FreePool (pNicDevice->MyDevPath);
-		  
+
 				    if ( NULL != pNicDevice)
                   gBS->FreePool (pNicDevice);
         }
     }
-        
+
         if (!AllChildrenStopped) {
                 return EFI_DEVICE_ERROR;
         }
@@ -524,7 +531,7 @@ DriverStop (
 /**
   Driver binding protocol declaration
 **/
-EFI_DRIVER_BINDING_PROTOCOL  gDriverBinding = {
+EFI_DRIVER_BINDING  gDriverBinding = {
   DriverSupported,
   DriverStart,
   DriverStop,
@@ -561,7 +568,7 @@ DriverUnload (
   pHandle = NULL;
   Status = gBS->LocateHandle (
                   ByProtocol,
-                  &gEfiCallerIdGuid,
+                  &CallerIdProtocol,
                   NULL,
                   &BufferSize,
                   NULL );
@@ -576,7 +583,7 @@ DriverUnload (
                       (VOID **) &pHandle
                       );
       if ( EFI_ERROR ( Status )) {
-        DEBUG ((EFI_D_ERROR, "Insufficient memory, failed handle buffer allocation\r\n"));
+        DEBUG (D_ERROR, L"Insufficient memory, failed handle buffer allocation\r\n");
         break;
       }
 
@@ -585,7 +592,7 @@ DriverUnload (
       //
       Status = gBS->LocateHandle (
                       ByProtocol,
-                      &gEfiCallerIdGuid,
+                      &CallerIdProtocol,
                       NULL,
                       &BufferSize,
                       pHandle );
@@ -595,7 +602,7 @@ DriverUnload (
         //
         break;
       }
-      
+
       //
       //  Remove any use of the driver
       //
@@ -606,7 +613,7 @@ DriverUnload (
                               0,
                               NULL );
         if ( EFI_ERROR ( Status )) {
-          DEBUG ((EFI_D_ERROR, "WARNING - Failed to shutdown the driver on handle %08x\r\n", pHandle[ Index ]));
+          DEBUG (D_ERROR, L"WARNING - Failed to shutdown the driver on handle %08x\r\n", pHandle[Index]);
           break;
         }
       }
@@ -623,7 +630,7 @@ DriverUnload (
   }
 
   //
-  //  Free the handle array          
+  //  Free the handle array
   //
   if ( NULL != pHandle ) {
     gBS->FreePool ( pHandle );
@@ -635,30 +642,52 @@ DriverUnload (
   if ( !EFI_ERROR ( Status )) {
     gBS->UninstallMultipleProtocolInterfaces (
             ImageHandle,
-            &gEfiDriverBindingProtocolGuid,
-            &gDriverBinding,                              
-            &gEfiComponentNameProtocolGuid,
+            &DriverBindingProtocol,
+            &gDriverBinding,
+            &ComponentNameProtocol,
             &gComponentName,
-            &gEfiComponentName2ProtocolGuid,
+            &ComponentName2Protocol,
             &gComponentName2,
             NULL
             );
 
-    DEBUG (( DEBUG_POOL | DEBUG_INIT | DEBUG_INFO,
-            "Removed:   gEfiComponentName2ProtocolGuid from 0x%08x\r\n",
-            ImageHandle ));
-    DEBUG (( DEBUG_POOL | DEBUG_INIT | DEBUG_INFO,
-              "Removed:   gEfiComponentNameProtocolGuid from 0x%08x\r\n",
-              ImageHandle ));
-    DEBUG (( DEBUG_POOL | DEBUG_INIT | DEBUG_INFO,
-              "Removed:   gEfiDriverBindingProtocolGuid from 0x%08x\r\n",
-              ImageHandle ));
+    DEBUG (D_INIT, L"Removed: ComponentName2Protocol from 0x%08x\r\n", ImageHandle);
+    DEBUG (D_INIT, L"Removed: ComponentNameProtocol from 0x%08x\r\n", ImageHandle);
+    DEBUG (D_INIT, L"Removed: DriverBindingProtocol from 0x%08x\r\n", ImageHandle);
 
   }
 
   return Status;
 }
 
+EFI_STATUS
+EFIAPI
+ax88772_install (
+  IN EFI_HANDLE ImageHandle,
+  IN EFI_SYSTEM_TABLE * pSystemTable
+  )
+{
+  EFI_STATUS Status;
+  EFI_HANDLE *handles;
+  UINTN cnt;
+
+  Status = gBS->LocateHandleBuffer(ByProtocol, &UsbIoProtocol, NULL, &cnt, &handles);
+  switch (Status) {
+    case EFI_SUCCESS:
+      for (int i = 0; i < cnt; i++) {
+          gBS->ConnectController(handles[i], NULL, NULL, FALSE);
+      }
+      gBS->FreePool(handles);
+      break;
+    case EFI_NOT_FOUND:
+      Print(L"No USB devices found\n");
+      break;
+    default:
+      Print(L"Error searching for USB: %ld\n", Status);
+  }
+
+  return Status;
+}
 
 /**
 Ax88772 driver entry point.
@@ -671,7 +700,7 @@ Ax88772 driver entry point.
 **/
 EFI_STATUS
 EFIAPI
-EntryPoint (
+ax88772_init (
   IN EFI_HANDLE ImageHandle,
   IN EFI_SYSTEM_TABLE * pSystemTable
   )
@@ -681,22 +710,33 @@ EntryPoint (
   //
   //  Add the driver to the list of drivers
   //
-  Status = EfiLibInstallDriverBindingComponentName2 (
+  /*Status = EfiLibInstallDriverBindingComponentName2 (
              ImageHandle,
              pSystemTable,
              &gDriverBinding,
              ImageHandle,
              &gComponentName,
              &gComponentName2
-             );
-  if ( !EFI_ERROR ( Status )) {
-    DEBUG ((EFI_D_INFO, "Installed: gEfiDriverBindingProtocolGuid on   0x%08x\r\n",
-              ImageHandle));
-    DEBUG ((EFI_D_INFO, "Installed: gEfiComponentNameProtocolGuid on   0x%08x\r\n",
-              ImageHandle));
-    DEBUG ((EFI_D_INFO,"Installed: gEfiComponentName2ProtocolGuid on   0x%08x\r\n",
-              ImageHandle ));
+             );*/
 
+  gDriverBinding.ImageHandle = ImageHandle;
+  gDriverBinding.DriverBindingHandle = ImageHandle;
+
+  Status = gBS->InstallMultipleProtocolInterfaces(
+                &gDriverBinding.DriverBindingHandle,
+                &DriverBindingProtocol, gDriverBinding,
+                &ComponentNameProtocol, gComponentName,
+                &ComponentName2Protocol, gComponentName2,
+                NULL);
+
+  if ( !EFI_ERROR ( Status )) {
+    DEBUG(D_INFO, L"Installed: DriverBindingProtocol on 0x%08x\r\n", ImageHandle);
+    DEBUG(D_INFO, L"Installed: ComponentNameProtocol on 0x%08x\r\n", ImageHandle);
+    DEBUG(D_INFO, L"Installed: ComponentName2Protocol on 0x%08x\r\n", ImageHandle);
+  }
+
+  if (EFI_ERROR(ax88772_install(ImageHandle, pSystemTable))) {
+    Print(L"Failed to install ax88772 driver\n");
   }
   return Status;
 }

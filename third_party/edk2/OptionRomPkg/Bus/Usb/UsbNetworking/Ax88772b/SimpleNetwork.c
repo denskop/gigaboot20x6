@@ -22,20 +22,20 @@
   hash by calling ::Ax88772MulticastClear and ::Ax88772MulticastSet.
   Finally this routine enables the receiver by calling
   ::Ax88772RxControl.
-                                                                                  
-  @param [in] pSimpleNetwork    Simple network mode pointer  
+
+  @param [in] pSimpleNetwork    Simple network mode pointer
 
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
 **/
 EFI_STATUS
 ReceiveFilterUpdate (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork
   )
 {
   EFI_SIMPLE_NETWORK_MODE * pMode;
@@ -75,7 +75,7 @@ ReceiveFilterUpdate (
 
 /**
   This function updates the SNP driver status.
-  
+
   This function gets the current interrupt and recycled transmit
   buffer status from the network interface.  The interrupt status
   and the media status are returned as a bit mask in InterruptStatus.
@@ -107,14 +107,14 @@ ReceiveFilterUpdate (
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
 
 **/
 EFI_STATUS
 EFIAPI
 SN_GetStatus (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   OUT UINT32 * pInterruptStatus,
   OUT VOID ** ppTxBuf
   )
@@ -126,7 +126,7 @@ SN_GetStatus (
   BOOLEAN bLinkUp;
   BOOLEAN bSpeed100;
   EFI_TPL TplPrevious;
- 
+
   TplPrevious = gBS->RaiseTPL(TPL_CALLBACK);
   //
   // Verify the parameters
@@ -135,13 +135,13 @@ SN_GetStatus (
     //
     // Return the transmit buffer
     //
-    
+
     pNicDevice = DEV_FROM_SIMPLE_NETWORK ( pSimpleNetwork );
     if (( NULL != ppTxBuf ) && ( NULL != pNicDevice->pTxBuffer )) {
      		 *ppTxBuf = pNicDevice->pTxBuffer;
      		 pNicDevice->pTxBuffer = NULL;
    	}
-    
+
     //
     // Determine if interface is running
     //
@@ -170,16 +170,16 @@ SN_GetStatus (
                       || ( bFullDuplex && ( !pNicDevice->bFullDuplex ))
                       || (( !bFullDuplex ) && pNicDevice->bFullDuplex )) {
                           pNicDevice->PollCount = 0;
-                          DEBUG (( EFI_D_INFO , "Reset to establish proper link setup: %d Mbps, %a duplex\r\n",
-                                    pNicDevice->b100Mbps ? 100 : 10, pNicDevice->bFullDuplex ? "Full" : "Half"));
+                          DEBUG (D_INFO , L"Reset to establish proper link setup: %d Mbps, %a duplex\r\n",
+                                    pNicDevice->b100Mbps ? 100 : 10, pNicDevice->bFullDuplex ? "Full" : "Half");
                           Status = SN_Reset ( &pNicDevice->SimpleNetwork, FALSE );
                   }
                   if (( !bLinkUp ) && pNicDevice->bLinkUp ) {
                       //
                       // Display the autonegotiation status
                       //
-                      DEBUG (( EFI_D_INFO , "Link: Up, %d Mbps, %a duplex\r\n",
-                                pNicDevice->b100Mbps ? 100 : 10, pNicDevice->bFullDuplex ? "Full" : "Half"));
+                      DEBUG (D_INFO , L"Link: Up, %d Mbps, %a duplex\r\n",
+                                pNicDevice->b100Mbps ? 100 : 10, pNicDevice->bFullDuplex ? "Full" : "Half");
 
                   }
                   pNicDevice->LinkIdleCnt = 0;
@@ -189,7 +189,7 @@ SN_GetStatus (
         //  Update the link status
         //
         if ( bLinkUp && ( !pNicDevice->bLinkUp )) {
-            DEBUG (( EFI_D_INFO , "Link: Down\r\n"));
+            DEBUG (D_INFO , L"Link: Down\r\n");
         }
       }
 
@@ -199,7 +199,7 @@ SN_GetStatus (
       //
       if ( NULL != pInterruptStatus ) {
         *pInterruptStatus = 0;
-      }   
+      }
       Status = EFI_SUCCESS;
     }
     else {
@@ -210,7 +210,7 @@ SN_GetStatus (
         Status = EFI_NOT_STARTED;
       }
     }
-      
+
   }
   else {
     Status = EFI_INVALID_PARAMETER;
@@ -235,15 +235,15 @@ SN_GetStatus (
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_OUT_OF_RESORUCES  There was not enough memory for the transmit and receive buffers
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
 **/
 EFI_STATUS
 EFIAPI
-SN_Initialize (                                              
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+SN_Initialize (
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   IN UINTN ExtraRxBufferSize,
   IN UINTN ExtraTxBufferSize
   )
@@ -252,7 +252,7 @@ SN_Initialize (
   EFI_STATUS Status;
   UINT32  TmpState;
    EFI_TPL TplPrevious;
-   
+
    TplPrevious = gBS->RaiseTPL (TPL_CALLBACK);
   //
   // Verify the parameters
@@ -275,12 +275,12 @@ SN_Initialize (
           // Update the network state
           //
           pMode->State = TmpState;
-          DEBUG (( EFI_D_ERROR , "SN_reset failed\n"));
+          DEBUG (D_ERROR , L"SN_reset failed\n");
         }
       }
       else {
-        DEBUG (( EFI_D_ERROR , "Increase ExtraRxBufferSize = %d ExtraTxBufferSize=%d\n", 
-              ExtraRxBufferSize, ExtraTxBufferSize));
+        DEBUG (D_ERROR , L"Increase ExtraRxBufferSize = %d ExtraTxBufferSize=%d\n",
+              ExtraRxBufferSize, ExtraTxBufferSize);
         Status = EFI_UNSUPPORTED;
       }
     }
@@ -311,7 +311,7 @@ SN_Initialize (
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -319,7 +319,7 @@ SN_Initialize (
 EFI_STATUS
 EFIAPI
 SN_MCastIPtoMAC (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   IN BOOLEAN bIPv6,
   IN EFI_IP_ADDRESS * pIP,
   OUT EFI_MAC_ADDRESS * pMAC
@@ -344,7 +344,7 @@ SN_MCastIPtoMAC (
 
   if (bIPv6){
     Status = EFI_UNSUPPORTED;
-  }  
+  }
   else {
       //
       // check if the ip given is a mcast IP
@@ -393,7 +393,7 @@ SN_MCastIPtoMAC (
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -401,7 +401,7 @@ SN_MCastIPtoMAC (
 EFI_STATUS
 EFIAPI
 SN_NvData (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   IN BOOLEAN ReadWrite,
   IN UINTN Offset,
   IN UINTN BufferSize,
@@ -416,9 +416,9 @@ SN_NvData (
   return Status;
 }
 
-VOID 
+VOID
 FillPkt2Queue (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   IN UINTN BufLength)
 {
 
@@ -427,21 +427,21 @@ FillPkt2Queue (
   UINT8* pData;
   UINT32 offset;
   NIC_DEVICE * pNicDevice;
-  
+
   pNicDevice = DEV_FROM_SIMPLE_NETWORK ( pSimpleNetwork);
   for ( offset = 0; offset < BufLength; ){
       pLength = (UINT16*) (pNicDevice->pBulkInBuff + offset);
       pLengthBar = (UINT16*) (pNicDevice->pBulkInBuff + offset +2);
-      
+
       *pLength &= 0x7ff;
       *pLengthBar &= 0x7ff;
       *pLengthBar |= 0xf800;
-      
+
       if ((*pLength ^ *pLengthBar ) != 0xFFFF) {
-          DEBUG (( EFI_D_ERROR , "Pkt length error. BufLength = %d\n", BufLength));
+          DEBUG (D_ERROR, L"Pkt length error. BufLength = %d\n", BufLength);
           return;
-      }          
-      
+      }
+
       if (TRUE == pNicDevice->pNextFill->f_Used) {
         return;
       }
@@ -450,19 +450,19 @@ FillPkt2Queue (
           pNicDevice->pNextFill->f_Used = TRUE;
           pNicDevice->pNextFill->Length = *pLength;
           CopyMem (&pNicDevice->pNextFill->Data[0], pData, *pLength);
-          
+
           pNicDevice->pNextFill = pNicDevice->pNextFill->pNext;
           offset += ((*pLength + HW_HDR_LENGTH - 1) &~3) + 1;
           pNicDevice->PktCntInQueue++;
       }
-              
+
   }
 }
 
 EFI_STATUS
 EFIAPI
 SN_Receive (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   OUT UINTN                      * pHeaderSize,
   OUT UINTN                      * pBufferSize,
   OUT VOID                       * pBuffer,
@@ -481,13 +481,13 @@ SN_Receive (
   UINT32 TransferStatus;
   RX_PKT * pFirstFill;
   TplPrevious = gBS->RaiseTPL (TPL_CALLBACK);
-  
+
   //
   // Verify the parameters
   //
-  if (( NULL != pSimpleNetwork ) && 
-    ( NULL != pSimpleNetwork->Mode ) && 
-    (NULL != pBufferSize) && 
+  if (( NULL != pSimpleNetwork ) &&
+    ( NULL != pSimpleNetwork->Mode ) &&
+    (NULL != pBufferSize) &&
     (NULL != pBuffer)) {
     //
     // The interface must be running
@@ -500,15 +500,15 @@ SN_Receive (
       pNicDevice = DEV_FROM_SIMPLE_NETWORK ( pSimpleNetwork );
       pNicDevice->LinkIdleCnt++;
       pMode->MediaPresent = pNicDevice->bLinkUp;
-      
+
       if ( pMode->MediaPresent && pNicDevice->bComplete) {
-      
-      
+
+
         if (pNicDevice->PktCntInQueue != 0 ) {
-            DEBUG (( EFI_D_INFO, "pNicDevice->PktCntInQueue = %d\n",
-                pNicDevice->PktCntInQueue));
+            DEBUG (D_INFO, L"pNicDevice->PktCntInQueue = %d\n",
+                pNicDevice->PktCntInQueue);
         }
-        
+
         LengthInBytes = MAX_BULKIN_SIZE;
         if (pNicDevice->PktCntInQueue == 0 ){
             //
@@ -522,21 +522,21 @@ SN_Receive (
                                        &LengthInBytes,
                                        BULKIN_TIMEOUT,
                                        &TransferStatus );
-                                       
+
             if (LengthInBytes != 0 && !EFI_ERROR(Status) && !EFI_ERROR(TransferStatus) ){
                 FillPkt2Queue(pSimpleNetwork, LengthInBytes);
             }
         }
-        
+
         pFirstFill = pNicDevice->pFirstFill;
-         
+
         if (TRUE == pFirstFill->f_Used) {
             ETHERNET_HEADER * pHeader;
             pNicDevice->LinkIdleCnt = 0;
             CopyMem (pBuffer,  &pFirstFill->Data[0], pFirstFill->Length);
             pHeader = (ETHERNET_HEADER *) &pFirstFill->Data[0];
-                     
-            DEBUG (( EFI_D_INFO, "RX: %02x-%02x-%02x-%02x-%02x-%02x " 
+
+            DEBUG (D_INFO, L"RX: %02x-%02x-%02x-%02x-%02x-%02x "
                       "%02x-%02x-%02x-%02x-%02x-%02x  %02x-%02x  %d bytes\r\n",
                       pFirstFill->Data[0],
                       pFirstFill->Data[1],
@@ -552,8 +552,8 @@ SN_Receive (
                       pFirstFill->Data[11],
                       pFirstFill->Data[12],
                       pFirstFill->Data[13],
-                      pFirstFill->Length));   
-            
+                      pFirstFill->Length);
+
             if ( NULL != pHeaderSize ) {
               *pHeaderSize = sizeof ( *pHeader );
             }
@@ -570,7 +570,7 @@ SN_Receive (
             }
             Status = EFI_SUCCESS;
             if (*pBufferSize < pFirstFill->Length) {
-                  DEBUG (( EFI_D_ERROR, "RX: Buffer was too small"));
+                  DEBUG (D_ERROR, L"RX: Buffer was too small");
                   Status = EFI_BUFFER_TOO_SMALL;
             }
             *pBufferSize =  pFirstFill->Length;
@@ -588,9 +588,9 @@ SN_Receive (
         //  Link no up
         //
         pNicDevice->LinkIdleCnt++;
-        Status = EFI_NOT_READY; 
+        Status = EFI_NOT_READY;
       }
-      
+
     }
     else {
       if (EfiSimpleNetworkStarted == pMode->State) {
@@ -603,7 +603,7 @@ SN_Receive (
   }
   else {
     Status = EFI_INVALID_PARAMETER;
-  }                              
+  }
   gBS->RestoreTPL (TplPrevious);
   return Status;
 }
@@ -674,7 +674,7 @@ SN_Receive (
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -682,7 +682,7 @@ SN_Receive (
 EFI_STATUS
 EFIAPI
 SN_ReceiveFilters (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   IN UINT32 Enable,
   IN UINT32 Disable,
 /*
@@ -698,8 +698,8 @@ SN_ReceiveFilters (
   )
 {
   EFI_SIMPLE_NETWORK_MODE * pMode;
-  EFI_STATUS Status = EFI_SUCCESS;   
-  EFI_TPL TplPrevious; 
+  EFI_STATUS Status = EFI_SUCCESS;
+  EFI_TPL TplPrevious;
 
   TplPrevious = gBS->RaiseTPL(TPL_CALLBACK);
   pMode = pSimpleNetwork->Mode;
@@ -732,29 +732,29 @@ SN_ReceiveFilters (
     gBS->RestoreTPL(TplPrevious);
     return Status;
   }
-  
+
   if (bResetMCastFilter) {
     Disable |= (EFI_SIMPLE_NETWORK_RECEIVE_MULTICAST & pMode->ReceiveFilterMask);
       pMode->MCastFilterCount = 0;
-      if ( (0 == (pMode->ReceiveFilterSetting & EFI_SIMPLE_NETWORK_RECEIVE_MULTICAST)) 
+      if ( (0 == (pMode->ReceiveFilterSetting & EFI_SIMPLE_NETWORK_RECEIVE_MULTICAST))
             && Enable == 0 && Disable == 2) {
             gBS->RestoreTPL(TplPrevious);
             return EFI_SUCCESS;
       }
-  } 
+  }
   else {
     if (MCastFilterCnt != 0) {
-      UINTN i; 
+      UINTN i;
       EFI_MAC_ADDRESS * pMulticastAddress;
       pMulticastAddress =  pMCastFilter;
-      
+
       if ((MCastFilterCnt > pMode->MaxMCastFilterCount) ||
           (pMCastFilter == NULL)) {
         Status = EFI_INVALID_PARAMETER;
         gBS->RestoreTPL(TplPrevious);
         return Status;
       }
-      
+
       for ( i = 0 ; i < MCastFilterCnt ; i++ ) {
           UINT8  tmp;
           tmp = pMulticastAddress->Addr[0];
@@ -764,14 +764,14 @@ SN_ReceiveFilters (
           }
           pMulticastAddress++;
       }
-      
+
       pMode->MCastFilterCount = (UINT32)MCastFilterCnt;
       CopyMem (&pMode->MCastFilter[0],
                      pMCastFilter,
                      MCastFilterCnt * sizeof ( EFI_MAC_ADDRESS));
     }
   }
-  
+
   if (Enable == 0 && Disable == 0 && !bResetMCastFilter && MCastFilterCnt == 0) {
     Status = EFI_SUCCESS;
     gBS->RestoreTPL(TplPrevious);
@@ -783,11 +783,11 @@ SN_ReceiveFilters (
     gBS->RestoreTPL(TplPrevious);
     return Status;
   }
-  
+
   pMode->ReceiveFilterSetting |= Enable;
   pMode->ReceiveFilterSetting &= ~Disable;
   Status = ReceiveFilterUpdate (pSimpleNetwork);
-  
+
   if (EFI_DEVICE_ERROR == Status || EFI_INVALID_PARAMETER == Status)
       Status = EFI_SUCCESS;
 
@@ -816,7 +816,7 @@ SN_ReceiveFilters (
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -824,7 +824,7 @@ SN_ReceiveFilters (
 EFI_STATUS
 EFIAPI
 SN_Reset (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   IN BOOLEAN bExtendedVerification
   )
 {
@@ -845,7 +845,7 @@ SN_Reset (
     	//
     	pNicDevice = DEV_FROM_SIMPLE_NETWORK ( pSimpleNetwork );
     	pNicDevice->bComplete = FALSE;
-    	pNicDevice->bLinkUp = FALSE; 
+    	pNicDevice->bLinkUp = FALSE;
     	pNicDevice->bHavePkt = FALSE;
     	pMode = pSimpleNetwork->Mode;
     	pMode->MediaPresent = FALSE;
@@ -878,7 +878,7 @@ SN_Reset (
       else {
         Status = EFI_NOT_STARTED;
       }
-   	}  
+   	}
   }
   else {
     Status = EFI_INVALID_PARAMETER;
@@ -903,16 +903,16 @@ SN_Setup (
   IN NIC_DEVICE * pNicDevice
   )
 {
-  
+
 
   EFI_SIMPLE_NETWORK_MODE * pMode;
-  EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork;
+  EFI_SIMPLE_NETWORK * pSimpleNetwork;
   EFI_STATUS Status;
   RX_PKT * pCurr = NULL;
   RX_PKT * pPrev = NULL;
 
-	pSimpleNetwork = &pNicDevice->SimpleNetwork;  
-  pSimpleNetwork->Revision = EFI_SIMPLE_NETWORK_PROTOCOL_REVISION;
+  pSimpleNetwork = &pNicDevice->SimpleNetwork;
+  pSimpleNetwork->Revision = EFI_SIMPLE_NETWORK_INTERFACE_REVISION;
   pSimpleNetwork->Start = (EFI_SIMPLE_NETWORK_START)SN_Start;
   pSimpleNetwork->Stop = (EFI_SIMPLE_NETWORK_STOP)SN_Stop;
   pSimpleNetwork->Initialize = (EFI_SIMPLE_NETWORK_INITIALIZE)SN_Initialize;
@@ -959,13 +959,13 @@ SN_Setup (
   pNicDevice->PhyId = PHY_ID_INTERNAL;
   pNicDevice->b100Mbps = TRUE;
   pNicDevice->bFullDuplex = TRUE;
-  
+
   Status = Ax88772MacAddressGet (
                 pNicDevice,
                 &pMode->PermanentAddress.Addr[0]);
 
   if ( !EFI_ERROR ( Status )) {
-    int i; 
+    int i;
     //
     //  Use the hardware address as the current address
     //
@@ -973,72 +973,72 @@ SN_Setup (
     CopyMem ( &pMode->CurrentAddress,
               &pMode->PermanentAddress,
               PXE_HWADDR_LEN_ETHER );
-              
+
     CopyMem ( &pNicDevice->MAC,
               &pMode->PermanentAddress,
               PXE_HWADDR_LEN_ETHER );
-              
+
     pNicDevice->PktCntInQueue = 0;
-    
+
     for ( i = 0 ; i < MAX_QUEUE_SIZE ; i++) {
-        Status = gBS->AllocatePool ( EfiRuntimeServicesData, 
+        Status = gBS->AllocatePool ( EfiRuntimeServicesData,
                                       sizeof (RX_PKT),
                                       (VOID **) &pCurr);
         if ( EFI_ERROR(Status)) {
-            DEBUG (( EFI_D_ERROR, "Memory are not enough\n"));
+            DEBUG (D_ERROR, L"Memory are not enough\n");
             return Status;
-        }                              
+        }
         pCurr->f_Used = FALSE;
-        
+
         if ( i ) {
             pPrev->pNext = pCurr;
         }
         else {
             pNicDevice->QueueHead = pCurr;
         }
-        
+
         if (MAX_QUEUE_SIZE - 1 == i) {
             pCurr->pNext = pNicDevice->QueueHead;
         }
-        
+
         pPrev = pCurr;
     }
-    
+
     pNicDevice->pNextFill = pNicDevice->QueueHead;
     pNicDevice->pFirstFill = pNicDevice->QueueHead;
-    
+
     Status = gBS->AllocatePool (EfiRuntimeServicesData,
                                 MAX_BULKIN_SIZE,
                                 (VOID **) &pNicDevice->pBulkInBuff);
-                                
+
     if (EFI_ERROR(Status)) {
-        DEBUG (( EFI_D_ERROR, "gBS->AllocatePool for pBulkInBuff error. Status = %r\n",
-              Status));
+        DEBUG (D_ERROR, L"gBS->AllocatePool for pBulkInBuff error. Status = %r\n",
+              Status);
         return Status;
     }
   }
   else {
-    DEBUG (( EFI_D_ERROR, "Ax88772MacAddressGet error. Status = %r\n", Status));
+    DEBUG (D_ERROR, L"Ax88772MacAddressGet error. Status = %r\n", Status);
 		return Status;
   }
-  
+
   Status = gBS->AllocatePool ( EfiRuntimeServicesData,
                                    sizeof ( RX_TX_PACKET ),
                                    (VOID **) &pNicDevice->pRxTest );
 
   if (EFI_ERROR (Status)) {
-    DEBUG (( EFI_D_ERROR, "gBS->AllocatePool:pNicDevice->pRxTest error. Status = %r\n",
-              Status));
+    DEBUG (D_ERROR, L"gBS->AllocatePool:pNicDevice->pRxTest error. Status = %r\n",
+              Status);
 	  return Status;
   }
-                                   
+
   Status = gBS->AllocatePool ( EfiRuntimeServicesData,
                                    sizeof ( RX_TX_PACKET ),
                                    (VOID **) &pNicDevice->pTxTest );
 
   if (EFI_ERROR (Status)) {
-    DEBUG (( EFI_D_ERROR, "gBS->AllocatePool:pNicDevice->pTxTest error. Status = %r\n",
-              Status));
+    DEBUG (D_ERROR, L"gBS->AllocatePool:pNicDevice->pTxTest error. Status = %r\n",
+              Status);
 	  gBS->FreePool (pNicDevice->pRxTest);
   }
 
@@ -1054,7 +1054,7 @@ SN_Setup (
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_ALREADY_STARTED   The network interface was already started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -1062,7 +1062,7 @@ SN_Setup (
 EFI_STATUS
 EFIAPI
 SN_Start (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork
   )
 {
   NIC_DEVICE * pNicDevice;
@@ -1085,7 +1085,7 @@ SN_Start (
       // NVRAM access is not supported
       //
       ZeroMem ( pMode, sizeof ( *pMode ));
-  
+
       pMode->State = EfiSimpleNetworkStarted;
       pMode->HwAddressSize = PXE_HWADDR_LEN_ETHER;
       pMode->MediaHeaderSize = sizeof ( ETHERNET_HEADER );
@@ -1107,17 +1107,17 @@ SN_Start (
       pMode->MacAddressChangeable = TRUE;
       pMode->MultipleTxSupported = FALSE;
       pMode->MediaPresentSupported = TRUE;
-      pMode->MediaPresent = FALSE; 
+      pMode->MediaPresent = FALSE;
       pNicDevice->PktCntInQueue = 0;
       pNicDevice->pNextFill = pNicDevice->QueueHead;
       pNicDevice->pFirstFill = pNicDevice->QueueHead;
       pCurr = pNicDevice->QueueHead;
-      
-      for ( i = 0 ; i < MAX_QUEUE_SIZE ; i++) { 
+
+      for ( i = 0 ; i < MAX_QUEUE_SIZE ; i++) {
         pCurr->f_Used = FALSE;
         pCurr = pCurr->pNext;
       }
-      
+
     }
     else {
       Status = EFI_ALREADY_STARTED;
@@ -1130,7 +1130,7 @@ SN_Start (
 
 /**
   Set the MAC address.
-  
+
   This function modifies or resets the current station address of a
   network interface.  If Reset is TRUE, then the current station address
   is set ot the network interface's permanent address.  If Reset if FALSE
@@ -1149,7 +1149,7 @@ SN_Start (
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -1157,7 +1157,7 @@ SN_Start (
 EFI_STATUS
 EFIAPI
 SN_StationAddress (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   IN BOOLEAN bReset,
   IN EFI_MAC_ADDRESS * pNew
   )
@@ -1166,7 +1166,7 @@ SN_StationAddress (
   EFI_SIMPLE_NETWORK_MODE * pMode;
   EFI_STATUS Status;
   EFI_TPL TplPrevious;
-  
+
   TplPrevious = gBS->RaiseTPL(TPL_CALLBACK);
   //
   // Verify the parameters
@@ -1240,7 +1240,7 @@ SN_StationAddress (
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_BUFFER_TOO_SMALL  The pStatisticsTable is NULL or the buffer is too small.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -1272,7 +1272,7 @@ SN_StationAddress (
 EFI_STATUS
 EFIAPI
 SN_Statistics (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   IN BOOLEAN bReset,
   IN OUT UINTN * pStatisticsSize,
   OUT EFI_NETWORK_STATISTICS * pStatisticsTable
@@ -1286,7 +1286,7 @@ SN_Statistics (
   if (( NULL != pSimpleNetwork ) && ( NULL != pSimpleNetwork->Mode )) {
     pMode = pSimpleNetwork->Mode;
     //
-    // Determine if the interface is started 
+    // Determine if the interface is started
     //
     if (EfiSimpleNetworkInitialized == pMode->State){
       //
@@ -1295,7 +1295,7 @@ SN_Statistics (
       if (sizeof (EFI_NETWORK_STATISTICS) <= *pStatisticsSize){
         if (bReset) {
           Status = EFI_SUCCESS;
-        } 
+        }
         else {
           Status = EFI_UNSUPPORTED;
         }
@@ -1330,7 +1330,7 @@ SN_Statistics (
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -1338,13 +1338,13 @@ SN_Statistics (
 EFI_STATUS
 EFIAPI
 SN_Stop (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork
   )
 {
   EFI_SIMPLE_NETWORK_MODE * pMode;
   EFI_STATUS Status;
   EFI_TPL TplPrevious;
-  
+
   TplPrevious = gBS->RaiseTPL(TPL_CALLBACK);
   //
   // Verify the parameters
@@ -1353,19 +1353,19 @@ SN_Stop (
     //
     // Determine if the interface is started
     //
-    pMode = pSimpleNetwork->Mode;   
+    pMode = pSimpleNetwork->Mode;
     if ( EfiSimpleNetworkStarted == pMode->State ) {
         pMode->State = EfiSimpleNetworkStopped;
-        Status = EFI_SUCCESS; 
+        Status = EFI_SUCCESS;
     }
     else {
         Status = EFI_NOT_STARTED;
     }
-  } 
+  }
   else {
     Status = EFI_INVALID_PARAMETER;
   }
-  
+
   gBS->RestoreTPL ( TplPrevious );
   return Status;
 }
@@ -1381,7 +1381,7 @@ SN_Stop (
   @retval EFI_SUCCESS           This operation was successful.
   @retval EFI_NOT_STARTED       The network interface was not started.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
   @retval EFI_UNSUPPORTED       The increased buffer size feature is not supported.
 
@@ -1389,14 +1389,14 @@ SN_Stop (
 EFI_STATUS
 EFIAPI
 SN_Shutdown (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork
   )
 {
   EFI_SIMPLE_NETWORK_MODE * pMode;
   UINT32 RxFilter;
   EFI_STATUS Status;
   EFI_TPL TplPrevious;
-  
+
   TplPrevious = gBS->RaiseTPL(TPL_CALLBACK);
   //
   // Verify the parameters
@@ -1476,14 +1476,14 @@ SN_Shutdown (
   @retval EFI_NOT_READY         The network interface is too busy to accept this transmit request.
   @retval EFI_BUFFER_TOO_SMALL  The BufferSize parameter is too small.
   @retval EFI_INVALID_PARAMETER pSimpleNetwork parameter was NULL or did not point to a valid
-                                EFI_SIMPLE_NETWORK_PROTOCOL structure.
+                                EFI_SIMPLE_NETWORK structure.
   @retval EFI_DEVICE_ERROR      The command could not be sent to the network interface.
 
 **/
 EFI_STATUS
 EFIAPI
 SN_Transmit (
-  IN EFI_SIMPLE_NETWORK_PROTOCOL * pSimpleNetwork,
+  IN EFI_SIMPLE_NETWORK * pSimpleNetwork,
   IN UINTN HeaderSize,
   IN UINTN BufferSize,
   IN VOID * pBuffer,
@@ -1506,9 +1506,9 @@ SN_Transmit (
 
   // Verify the parameters
   //
-  if (( NULL != pSimpleNetwork ) && 
-      ( NULL != pSimpleNetwork->Mode ) && 
-      ( NULL != pBuffer) && 
+  if (( NULL != pSimpleNetwork ) &&
+      ( NULL != pSimpleNetwork->Mode ) &&
+      ( NULL != pBuffer) &&
       ( (HeaderSize == 0) || ( (NULL != pDestAddr) && (NULL != pProtocol) ))) {
     //
     // The interface must be running
@@ -1531,13 +1531,13 @@ SN_Transmit (
 
           //
           //  Release the synchronization with Ax88772Timer
-          //      
+          //
           if ( pMode->MediaPresent && pNicDevice->bComplete) {
             //
             //  Copy the packet into the USB buffer
             //
 
-            CopyMem ( &pNicDevice->pTxTest->Data[0], pBuffer, BufferSize ); 
+            CopyMem ( &pNicDevice->pTxTest->Data[0], pBuffer, BufferSize );
             pNicDevice->pTxTest->Length = (UINT16) BufferSize;
 
             //
@@ -1568,8 +1568,8 @@ SN_Transmit (
               ZeroMem ( &pNicDevice->pTxTest->Data[ BufferSize ],
                         pNicDevice->pTxTest->Length - BufferSize );
             }
-        
-            DEBUG ((EFI_D_INFO, "TX: %02x-%02x-%02x-%02x-%02x-%02x  %02x-%02x-%02x-%02x-%02x-%02x"
+
+            DEBUG (D_INFO, L"TX: %02x-%02x-%02x-%02x-%02x-%02x  %02x-%02x-%02x-%02x-%02x-%02x"
                       "  %02x-%02x  %d bytes\r\n",
                       pNicDevice->pTxTest->Data[0],
                       pNicDevice->pTxTest->Data[1],
@@ -1585,13 +1585,13 @@ SN_Transmit (
                       pNicDevice->pTxTest->Data[11],
                       pNicDevice->pTxTest->Data[12],
                       pNicDevice->pTxTest->Data[13],
-                      pNicDevice->pTxTest->Length ));
+                      pNicDevice->pTxTest->Length);
 
             pNicDevice->pTxTest->LengthBar = ~(pNicDevice->pTxTest->Length);
             TransferLength = sizeof ( pNicDevice->pTxTest->Length )
                            + sizeof ( pNicDevice->pTxTest->LengthBar )
                            + pNicDevice->pTxTest->Length;
-                           
+
             if (TransferLength % 512 == 0 || TransferLength % 1024 == 0)
                 TransferLength +=4;
 
@@ -1605,7 +1605,7 @@ SN_Transmit (
                                                BULK_OUT_ENDPOINT,
                                                &pNicDevice->pTxTest->Length,
                                                &TransferLength,
-                                               0xfffffffe, 
+                                               0xfffffffe,
                                                &TransferStatus );
             if ( !EFI_ERROR ( Status )) {
               Status = TransferStatus;
@@ -1617,7 +1617,7 @@ SN_Transmit (
             else {
               if ((TransferLength != (UINTN)( pNicDevice->pTxTest->Length + 4 )) &&
                    (TransferLength != (UINTN)(( pNicDevice->pTxTest->Length + 4 ) + 4))) {
-                DEBUG ((EFI_D_INFO, "TransferLength didn't match Packet Length\n"));
+                DEBUG (D_INFO, L"TransferLength didn't match Packet Length\n");
               }
               //
               //  Reset the controller to fix the error
@@ -1634,7 +1634,7 @@ SN_Transmit (
             //
             Status = EFI_NOT_READY;
           }
-          
+
         }
         else {
           if (EfiSimpleNetworkStarted == pMode->State) {
@@ -1656,7 +1656,7 @@ SN_Transmit (
   else {
     Status = EFI_INVALID_PARAMETER;
   }
-  
+
   gBS->RestoreTPL (TplPrevious);
 
   return Status;
