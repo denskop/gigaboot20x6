@@ -104,6 +104,9 @@ QEMU_OPTS := -cpu qemu64
 QEMU_OPTS += -bios third_party/ovmf/OVMF.fd
 QEMU_OPTS += -drive file=out/disk.img,format=raw,if=ide
 QEMU_OPTS += -serial stdio
+QEMU_OPTS += -m 256M
+QEMU_OPTS += -usbdevice host:0b95:772b
+QEMU_OPTS += -net nic,model=e1000 -net user
 
 qemu:: all
 	qemu-system-x86_64 $(QEMU_OPTS)
