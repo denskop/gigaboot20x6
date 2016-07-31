@@ -106,8 +106,12 @@ QEMU_OPTS += -drive file=out/disk.img,format=raw,if=ide
 QEMU_OPTS += -serial stdio
 QEMU_OPTS += -m 256M
 QEMU_OPTS += -usbdevice host:0b95:772b
-QEMU_OPTS += -net nic,model=e1000 -net user
 
+qemu-e1000: QEMU_OPTS += -netdev type=tap,ifname=qemu,script=no,id=net0 -net nic,model=e1000,netdev=net0
+qemu-e1000: all
+	qemu-system-x86_64 $(QEMU_OPTS)
+
+qemu: QEMU_OPTS += -net none
 qemu:: all
 	qemu-system-x86_64 $(QEMU_OPTS)
 
