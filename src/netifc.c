@@ -126,40 +126,91 @@ int netifc_timer_expired(void) {
     return 0;
 }
 
+/* Search the available network interfaces via SimpleNetworkProtocol handles
+ * and find the first valid one with a Link detected */
+EFI_SIMPLE_NETWORK *netifc_find_available(void) {
+    EFI_BOOT_SERVICES* bs = gSys->BootServices;
+    EFI_STATUS ret;
+    EFI_SIMPLE_NETWORK *cur_snp = NULL;
+    EFI_HANDLE h[32];
+    size_t nic_cnt = 0;
+    size_t sz = sizeof(h);
+    uint32_t int_sts;
+    void *tx_buf;
+
+    /* Get the handles of all devices that provide SimpleNetworkProtocol interfaces */
+    ret = bs->LocateHandle(ByProtocol, &SimpleNetworkProtocol, NULL, &sz, h);
+    if (ret != EFI_SUCCESS) {
+        printf("Failed to locate network interfaces (%ld)\n", ~EFI_ERROR_MASK & ret);
+        return NULL;
+    }
+
+    nic_cnt = sz / sizeof(EFI_HANDLE);
+    printf("Found %zu network interface%c\n", nic_cnt, (nic_cnt == 1) ? ' ' : 's');
+    for (size_t i = 0; i < nic_cnt; i++) {
+        CHAR16 *path = HandleToString(h[i]);
+        Print(L"%u: %s\n", i, path);
+    }
+
+    /* Iterate over our SNP list until we find one with an established link */
+    for (size_t i = 0; i < nic_cnt; i++) {
+        printf("net%zu: ", i);
+        ret = bs->OpenProtocol(h[i], &SimpleNetworkProtocol, (void**)&cur_snp, gImg, NULL,
+                EFI_OPEN_PROTOCOL_EXCLUSIVE);
+        if (ret) {
+            printf("Failed to open (%lu)\n", ~EFI_ERROR_MASK & ret);
+            continue;
+        }
+
+        ret = cur_snp->Start(cur_snp);
+        if (EFI_ERROR(ret)) {
+            printf("Failed to start (%lu)", ~EFI_ERROR_MASK & ret);
+            goto link_fail;
+        }
+
+        /* Additional buffer allocations shouldn't be needed */
+        ret = cur_snp->Initialize(cur_snp, 0, 0);
+        if (EFI_ERROR(ret)) {
+            printf("Failed to initialize (%lu)\n", ~EFI_ERROR_MASK & ret);
+            goto link_fail;
+        }
+
+        /* Prod the driver to cache its current status. We don't need the status or buffer,
+         * but some drivers appear to require the OPTIONAL parameters. */
+        ret = cur_snp->GetStatus(cur_snp, &int_sts, &tx_buf);
+        if (EFI_ERROR(ret)) {
+            printf("Failed to read status (%lu)\n", ~EFI_ERROR_MASK & ret);
+            goto link_fail;
+        }
+
+        /* With status cached, do we have a Link detected on the netifc? */
+        if (!cur_snp->Mode->MediaPresent) {
+            printf("No link detected\n");
+            goto link_fail;
+        }
+
+        printf("Link detected!\n");
+        return cur_snp;
+
+link_fail:
+        bs->CloseProtocol(h[i], &SimpleNetworkProtocol, gImg, NULL);
+        cur_snp = NULL;
+    }
+
+    return NULL;
+}
+
 int netifc_open(void) {
     EFI_BOOT_SERVICES* bs = gSys->BootServices;
-    EFI_HANDLE h[32];
-    EFI_STATUS r;
-    int i, j;
-    UINTN sz;
+    EFI_STATUS ret;
+    int j;
 
     bs->CreateEvent(EVT_TIMER, TPL_CALLBACK, NULL, NULL, &net_timer);
 
-    sz = sizeof(h);
-    r = bs->LocateHandle(ByProtocol, &SimpleNetworkProtocol, NULL, &sz, h);
-    if (r != EFI_SUCCESS) {
-        printf("Failed to locate SNP handle(s) %ld\n", r);
+    snp = netifc_find_available();
+    if (!snp) {
+        printf("Failed to find a usable network interface\n");
         return -1;
-    }
-
-    r = bs->OpenProtocol(h[0], &SimpleNetworkProtocol, (void**)&snp, gImg, NULL,
-                         EFI_OPEN_PROTOCOL_EXCLUSIVE);
-    if (r) {
-        printf("Failed to open SNP exclusively %ld\n", r);
-        return -1;
-    }
-
-    if (snp->Mode->State != EfiSimpleNetworkStarted) {
-        snp->Start(snp);
-        if (snp->Mode->State != EfiSimpleNetworkStarted) {
-            printf("Failed to start SNP\n");
-            return -1;
-        }
-        r = snp->Initialize(snp, 32768, 32768);
-        if (r) {
-            printf("Failed to initialize SNP\n");
-            return -1;
-        }
     }
 
     if (bs->AllocatePages(AllocateAnyPages, EfiLoaderData, NUM_BUFFER_PAGES, &eth_buffers_base)) {
@@ -168,7 +219,7 @@ int netifc_open(void) {
     }
 
     uint8_t* ptr = (void*)eth_buffers_base;
-    for (r = 0; r < (NUM_BUFFER_PAGES * 2); r++) {
+    for (ret = 0; ret < (NUM_BUFFER_PAGES * 2); ret++) {
         eth_buffer* buf = (void*)ptr;
         buf->magic = ETH_BUFFER_MAGIC;
         eth_put_buffer(buf);
@@ -177,12 +228,12 @@ int netifc_open(void) {
 
     ip6_init(snp->Mode->CurrentAddress.Addr);
 
-    r = snp->ReceiveFilters(snp,
+    ret = snp->ReceiveFilters(snp,
                             EFI_SIMPLE_NETWORK_RECEIVE_UNICAST |
                                 EFI_SIMPLE_NETWORK_RECEIVE_MULTICAST,
                             0, 0, mcast_filter_count, (void*)mcast_filters);
-    if (r) {
-        printf("Failed to install multicast filters %lx\n", r);
+    if (ret) {
+        printf("Failed to install multicast filters %lx\n", ret);
         return -1;
     }
 
@@ -193,7 +244,7 @@ int netifc_open(void) {
                mcast_filter_count, snp->Mode->MCastFilterCount);
         goto force_promisc;
     }
-    for (i = 0; i < mcast_filter_count; i++) {
+    for (size_t i = 0; i < mcast_filter_count; i++) {
         //uint8_t *m = (void*) &mcast_filters[i];
         //printf("i=%d %02x %02x %02x %02x %02x %02x\n", i, m[0], m[1], m[2], m[3], m[4], m[5]);
         for (j = 0; j < mcast_filter_count; j++) {
@@ -203,7 +254,7 @@ int netifc_open(void) {
                 goto found_it;
             }
         }
-        printf("OOPS: filter #%d missing\n", i);
+        printf("OOPS: filter #%zu missing\n", i);
         goto force_promisc;
     found_it:;
     }
@@ -211,13 +262,13 @@ int netifc_open(void) {
     return 0;
 
 force_promisc:
-    r = snp->ReceiveFilters(snp,
+    ret = snp->ReceiveFilters(snp,
                             EFI_SIMPLE_NETWORK_RECEIVE_UNICAST |
                                 EFI_SIMPLE_NETWORK_RECEIVE_PROMISCUOUS |
                                 EFI_SIMPLE_NETWORK_RECEIVE_PROMISCUOUS_MULTICAST,
                             0, 0, 0, NULL);
-    if (r) {
-        printf("Failed to set promiscuous mode %lx\n", r);
+    if (ret) {
+        printf("Failed to set promiscuous mode %lx\n", ret);
         return -1;
     }
     return 0;
@@ -249,19 +300,17 @@ void netifc_poll(void) {
         eth_put_buffer(txdone);
     }
 
-    if (irq & EFI_SIMPLE_NETWORK_RECEIVE_INTERRUPT) {
-        hsz = 0;
-        bsz = sizeof(data);
-        r = snp->Receive(snp, &hsz, &bsz, data, NULL, NULL, NULL);
-        if (r != EFI_SUCCESS) {
-            return;
-        }
-#if TRACE
-        printf("RX %02x:%02x:%02x:%02x:%02x:%02x < %02x:%02x:%02x:%02x:%02x:%02x %02x%02x %d\n",
-               data[0], data[1], data[2], data[3], data[4], data[5],
-               data[6], data[7], data[8], data[9], data[10], data[11],
-               data[12], data[13], (int)(bsz - hsz));
-#endif
-        eth_recv(data, bsz);
+    hsz = 0;
+    bsz = sizeof(data);
+    r = snp->Receive(snp, &hsz, &bsz, data, NULL, NULL, NULL);
+    if (r != EFI_SUCCESS) {
+        return;
     }
+#if TRACE
+    printf("RX %02x:%02x:%02x:%02x:%02x:%02x < %02x:%02x:%02x:%02x:%02x:%02x %02x%02x %d\n",
+            data[0], data[1], data[2], data[3], data[4], data[5],
+            data[6], data[7], data[8], data[9], data[10], data[11],
+            data[12], data[13], (int)(bsz - hsz));
+#endif
+    eth_recv(data, bsz);
 }
