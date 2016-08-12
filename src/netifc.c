@@ -153,6 +153,7 @@ EFI_SIMPLE_NETWORK *netifc_find_available(void) {
     }
 
     /* Iterate over our SNP list until we find one with an established link */
+#ifndef NETIFC_EXCLUSIVE_WORKAROUND
     for (size_t i = 0; i < nic_cnt; i++) {
         printf("net%zu: ", i);
         ret = bs->OpenProtocol(h[i], &SimpleNetworkProtocol, (void**)&cur_snp, gImg, NULL,
@@ -167,7 +168,18 @@ EFI_SIMPLE_NETWORK *netifc_find_available(void) {
             printf("Failed to start (%lu)", ~EFI_ERROR_MASK & ret);
             goto link_fail;
         }
-
+#else
+        printf("hack!\n");
+        extern EFI_SIMPLE_NETWORK *get_ax88772b_snp(void);
+        cur_snp = get_ax88772b_snp();
+        printf("cur_snp: %p\n", cur_snp);
+        ret = cur_snp->Start(cur_snp);
+        if (EFI_ERROR(ret)) {
+            printf("Error starting it: %lu\n", ~EFI_ERROR_MASK & ret);
+        } else {
+            printf("Success on start\n");
+        }
+#endif
         /* Additional buffer allocations shouldn't be needed */
         ret = cur_snp->Initialize(cur_snp, 0, 0);
         if (EFI_ERROR(ret)) {
@@ -191,12 +203,12 @@ EFI_SIMPLE_NETWORK *netifc_find_available(void) {
 
         printf("Link detected!\n");
         return cur_snp;
-
 link_fail:
+#ifndef NETIFC_EXCLUSIVE_WORKAROUND
         bs->CloseProtocol(h[i], &SimpleNetworkProtocol, gImg, NULL);
         cur_snp = NULL;
     }
-
+#endif
     return NULL;
 }
 

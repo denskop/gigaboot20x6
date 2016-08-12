@@ -33,6 +33,7 @@ EFI_CFLAGS	+= -std=c99
 EFI_CFLAGS	+= -ffreestanding -nostdinc -Iinclude -Isrc -Ithird_party/edk2 -Ithird_party/lk/include
 EFI_CFLAGS	+= $(patsubst %,-I%,$(EFI_INC_PATHS))
 EFI_CFLAGS	+= -DHAVE_USE_MS_ABI=1
+EFI_CFLAGS  += -DNETIFC_EXCLUSIVE_WORKAROUND
 EFI_CFLAGS	+= -ggdb
 
 EFI_LDFLAGS	:= -nostdlib -znocombreloc -T $(EFI_LINKSCRIPT)

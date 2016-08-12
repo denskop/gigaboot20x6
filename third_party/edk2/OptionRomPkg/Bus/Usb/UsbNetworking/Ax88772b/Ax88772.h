@@ -1029,6 +1029,10 @@ extern EFI_BOOT_SERVICES* gBS;
 #define EFI_D_INFO D_INIT
 #define EFI_D_ERROR D_ERROR
 
+EFI_SIMPLE_NETWORK *get_ax88772b_snp(void);
+void set_ax88772b_snp(EFI_SIMPLE_NETWORK *);
+
+#define _EE(x) (~EFI_ERROR_MASK & x)
 //------------------------------------------------------------------------------
 
 #endif  //  _AX88772_H_

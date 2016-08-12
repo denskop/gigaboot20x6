@@ -54,6 +54,8 @@ DriverSupported (
   EFI_USB_IO_PROTOCOL * pUsbIo;
   EFI_STATUS Status;
   UINT32 Index;
+  // TODO(cja)
+  bool asix = false;
 
   //
   //  Connect to the USB stack
@@ -64,7 +66,7 @@ DriverSupported (
                   (VOID **) &pUsbIo,
                   pThis->DriverBindingHandle,
                   Controller,
-                  EFI_OPEN_PROTOCOL_BY_DRIVER
+                  EFI_OPEN_PROTOCOL_BY_DRIVER | EFI_OPEN_PROTOCOL_EXCLUSIVE
                   );
   if (!EFI_ERROR ( Status )) {
 
@@ -83,6 +85,8 @@ DriverSupported (
       for (Index = 0; ASIX_DONGLES[Index].VendorId != 0; Index++) {
         if (ASIX_DONGLES[Index].VendorId == Device.IdVendor &&
             ASIX_DONGLES[Index].ProductId == Device.IdProduct) {
+            // TOOD(cja)
+            asix = true;
               break;
         }
       }
@@ -100,6 +104,11 @@ DriverSupported (
            pThis->DriverBindingHandle,
            Controller
            );
+  }
+
+  // TODO(cja)
+  if (asix) {
+      Print(L"DroverSupported: %lu asix!\n", ~EFI_ERROR_MASK & Status);
   }
   return Status;
 }
@@ -128,6 +137,7 @@ DriverStart (
   )
 {
 
+    Print(L"ax88772b start\n"); // TODO(cja)
     EFI_STATUS						Status;
     NIC_DEVICE						*pNicDevice;
     UINTN							LengthInBytes;
@@ -163,7 +173,7 @@ DriverStart (
                     (VOID **) &pNicDevice->pUsbIo,
                     pThis->DriverBindingHandle,
                     Controller,
-                    EFI_OPEN_PROTOCOL_BY_DRIVER
+                    EFI_OPEN_PROTOCOL_BY_DRIVER | EFI_OPEN_PROTOCOL_EXCLUSIVE
                     );
 
 	if (EFI_ERROR (Status)) {
@@ -172,10 +182,14 @@ DriverStart (
 		goto EXIT;
 	}
 
+    Print(L"nic usb start: 0x%08x\n", (uintptr_t) pNicDevice->pUsbIo);
+
 	//
   //  Initialize the simple network protocol
   //
 	Status = SN_Setup ( pNicDevice );
+    Print(L"XXX after setup snp: 0x%08x\n", (uintptr_t) &pNicDevice->SimpleNetwork);
+    set_ax88772b_snp(&pNicDevice->SimpleNetwork);
 
 	if (EFI_ERROR(Status)){
 	   DEBUG (D_ERROR, L"SN_Setup ERROR Status = %r\n", Status);
@@ -206,6 +220,7 @@ DriverStart (
       for (Index = 0; ASIX_DONGLES[Index].VendorId != 0; Index++) {
           if (ASIX_DONGLES[Index].VendorId == Device.IdVendor &&
               ASIX_DONGLES[Index].ProductId == Device.IdProduct) {
+              Print(L"XXX found asix in DriverStart\n");
                 break;
           }
       }
@@ -269,7 +284,8 @@ DriverStart (
 	//
   //  Install both the simple network and device path protocols.
   //
-  Status = gBS->InstallMultipleProtocolInterfaces (
+  //
+  /*Status = gBS->InstallMultipleProtocolInterfaces (
                           &pNicDevice->Controller,
                           &CallerIdProtocol,
                           pNicDevice,
@@ -295,19 +311,22 @@ DriverStart (
 					);
 		  gBS->FreePool ( pNicDevice );
 		  goto EXIT;
-	}
+	}*/
 
 	//
 	// Open For Child Device
 	//
-	Status = gBS->OpenProtocol (
+	/*Status = gBS->OpenProtocol (
                   Controller,
                   &UsbIoProtocol,
                   (VOID **) &pNicDevice->pUsbIo,
                   pThis->DriverBindingHandle,
                   pNicDevice->Controller,
-                  EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER
+                  EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER | EFI_OPEN_PROTOCOL_EXCLUSIVE
                   );
+
+    Print(L"status after child 0x%08x\n", _EE(Status));
+    Print(L"nic usb: 0x%08x\n", (uintptr_t) pNicDevice->pUsbIo);
 
 	if (EFI_ERROR(Status)){
 	   gBS->UninstallMultipleProtocolInterfaces (
@@ -332,7 +351,7 @@ DriverStart (
 					Controller
 					);
 		  gBS->FreePool ( pNicDevice );
-	}
+	}*/
 
 EXIT:
 	return Status;

@@ -14,6 +14,17 @@
 
 #include "Ax88772.h"
 
+EFI_SIMPLE_NETWORK *_snp_cache;
+EFI_SIMPLE_NETWORK *get_ax88772b_snp(void)
+{
+    return _snp_cache;
+}
+
+void set_ax88772b_snp(EFI_SIMPLE_NETWORK *snp)
+{
+    _snp_cache = snp;;
+}
+
 /**
   This function updates the filtering on the receiver.
 
@@ -1045,7 +1056,6 @@ SN_Setup (
   return Status;
 }
 
-
 /**
   This routine starts the network interface.
 
@@ -1065,6 +1075,7 @@ SN_Start (
   IN EFI_SIMPLE_NETWORK * pSimpleNetwork
   )
 {
+  Print(L"start called, snp 0x%08x\n", (uintptr_t)pSimpleNetwork);
   NIC_DEVICE * pNicDevice;
   EFI_SIMPLE_NETWORK_MODE * pMode;
   EFI_STATUS Status;
@@ -1098,7 +1109,9 @@ SN_Start (
       pMode->ReceiveFilterSetting = EFI_SIMPLE_NETWORK_RECEIVE_UNICAST;
       pMode->MaxMCastFilterCount = MAX_MCAST_FILTER_CNT;
       pNicDevice = DEV_FROM_SIMPLE_NETWORK ( pSimpleNetwork );
+      Print(L"start nicdevice 0x%08x\n", (uintptr_t) pNicDevice);
       Status = Ax88772MacAddressGet ( pNicDevice, &pMode->PermanentAddress.Addr[0]);
+      Print(L"mac read: %lu", _EE(Status));
       CopyMem ( &pMode->CurrentAddress,
                 &pMode->PermanentAddress,
                 sizeof ( pMode->CurrentAddress ));
@@ -1124,6 +1137,8 @@ SN_Start (
     }
   }
   gBS->RestoreTPL ( TplPrevious );
+
+  Print(L"Start exit: %lu\n", ~EFI_ERROR_MASK & Status);
   return Status;
 }
 
