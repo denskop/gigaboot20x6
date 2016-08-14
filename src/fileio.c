@@ -14,7 +14,7 @@
 
 #include <efi.h>
 #include <efilib.h>
-#include <goodies.h>
+#include <utils.h>
 
 EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
     EFI_LOADED_IMAGE* loaded;

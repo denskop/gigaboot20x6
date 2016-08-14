@@ -54,7 +54,7 @@ define _efi_app
 ALL	+= out/$1.efi out/$1.dbg
 APPS	+= out/$1.efi
 DEPS	+= $3
-out/$1.so: $2 $(EFI_CRT0) out/libstuff.a
+out/$1.so: $2 $(EFI_CRT0) out/libutils.a
 	@mkdir -p $$(dir $$@)
 	@echo linking: $$@
 	$(QUIET)$(EFI_LD) -o $$@ $(EFI_LDFLAGS) $(EFI_CRT0) $2 $(EFI_LIBS)

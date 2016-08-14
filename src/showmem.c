@@ -83,7 +83,7 @@ static void dump_memmap(EFI_SYSTEM_TABLE* systab) {
     }
 }
 
-#include <goodies.h>
+#include <utils.h>
 
 EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
     InitializeLib(img, sys);

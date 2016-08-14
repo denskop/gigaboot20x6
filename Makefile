@@ -39,7 +39,7 @@ EFI_LDFLAGS	:= -nostdlib -znocombreloc -T $(EFI_LINKSCRIPT)
 EFI_LDFLAGS	+= -shared -Bsymbolic
 EFI_LDFLAGS	+= $(patsubst %,-L%,$(EFI_LIB_PATHS))
 
-EFI_LIBS	:= -lstuff -lefi -lgnuefi
+EFI_LIBS	:= -lutils -lefi -lgnuefi
 
 what_to_build::	all
 
@@ -67,13 +67,13 @@ else
 	APP := out/osboot.efi
 endif
 
-LIB_SRCS := lib/goodies.c lib/loadfile.c lib/console-printf.c lib/string.c
+LIB_SRCS := lib/utils.c lib/loadfile.c lib/console-printf.c lib/string.c
 LIB_SRCS += third_party/lk/src/printf.c
 
 LIB_OBJS := $(patsubst %.c,out/%.o,$(LIB_SRCS))
 DEPS += $(patsubst %.c,out/%.d,$(LIB_SRCS))
 
-out/libstuff.a: $(LIB_OBJS)
+out/libutils.a: $(LIB_OBJS)
 	@mkdir -p $(dir $@)
 	@echo archiving: $@
 	$(QUIET)rm -f $@

@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <goodies.h>
+#include <utils.h>
 
 #include <inet6.h>
 #include <netifc.h>
@@ -141,7 +141,7 @@ EFI_SIMPLE_NETWORK *netifc_find_available(void) {
     /* Get the handles of all devices that provide SimpleNetworkProtocol interfaces */
     ret = bs->LocateHandle(ByProtocol, &SimpleNetworkProtocol, NULL, &sz, h);
     if (ret != EFI_SUCCESS) {
-        printf("Failed to locate network interfaces (%ld)\n", ~EFI_ERROR_MASK & ret);
+        printf("Failed to locate network interfaces (%s)\n", efi_strerror(ret));
         return NULL;
     }
 
@@ -158,20 +158,20 @@ EFI_SIMPLE_NETWORK *netifc_find_available(void) {
         ret = bs->OpenProtocol(h[i], &SimpleNetworkProtocol, (void**)&cur_snp, gImg, NULL,
                 EFI_OPEN_PROTOCOL_EXCLUSIVE);
         if (ret) {
-            printf("Failed to open (%lu)\n", ~EFI_ERROR_MASK & ret);
+            printf("Failed to open (%s)\n", efi_strerror(ret));
             continue;
         }
 
         ret = cur_snp->Start(cur_snp);
         if (EFI_ERROR(ret)) {
-            printf("Failed to start (%lu)", ~EFI_ERROR_MASK & ret);
+            printf("Failed to start (%s)", efi_strerror(ret));
             goto link_fail;
         }
 
         /* Additional buffer allocations shouldn't be needed */
         ret = cur_snp->Initialize(cur_snp, 0, 0);
         if (EFI_ERROR(ret)) {
-            printf("Failed to initialize (%lu)\n", ~EFI_ERROR_MASK & ret);
+            printf("Failed to initialize (%s)\n", efi_strerror(ret));
             goto link_fail;
         }
 
@@ -179,7 +179,7 @@ EFI_SIMPLE_NETWORK *netifc_find_available(void) {
          * but some drivers appear to require the OPTIONAL parameters. */
         ret = cur_snp->GetStatus(cur_snp, &int_sts, &tx_buf);
         if (EFI_ERROR(ret)) {
-            printf("Failed to read status (%lu)\n", ~EFI_ERROR_MASK & ret);
+            printf("Failed to read status (%s)\n", efi_strerror(ret));
             goto link_fail;
         }
 
@@ -233,7 +233,7 @@ int netifc_open(void) {
                                 EFI_SIMPLE_NETWORK_RECEIVE_MULTICAST,
                             0, 0, mcast_filter_count, (void*)mcast_filters);
     if (ret) {
-        printf("Failed to install multicast filters %lx\n", ret);
+        printf("Failed to install multicast filters %s\n", efi_strerror(ret));
         return -1;
     }
 
@@ -268,7 +268,7 @@ force_promisc:
                                 EFI_SIMPLE_NETWORK_RECEIVE_PROMISCUOUS_MULTICAST,
                             0, 0, 0, NULL);
     if (ret) {
-        printf("Failed to set promiscuous mode %lx\n", ret);
+        printf("Failed to set promiscuous mode (%s)\n", efi_strerror(ret));
         return -1;
     }
     return 0;

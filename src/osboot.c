@@ -17,7 +17,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <goodies.h>
+#include <utils.h>
 #include <netboot.h>
 
 #define E820_IGNORE 0
@@ -378,11 +378,11 @@ int boot_kernel(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys,
         n = process_memory_map(sys, &key, 1);
         r = sys->BootServices->ExitBootServices(img, key);
         if (r) {
-            printf("Cannot ExitBootServices! (2) %ld\n", r);
+            printf("Cannot ExitBootServices! (2) %s\n", efi_strerror(r));
             return -1;
         }
     } else if (r) {
-        printf("Cannot ExitBootServices! (1) %ld\n", r);
+        printf("Cannot ExitBootServices! (1) %s\n", efi_strerror(r));
         return -1;
     }
 
@@ -494,7 +494,7 @@ EFI_STATUS efi_main(EFI_HANDLE img, EFI_SYSTEM_TABLE* sys) {
             printf("Attempting to run EFI binary...\n");
             r = bs->LoadImage(FALSE, img, NULL, (void*) nbkernel.data, nbkernel.offset, &h);
             if (r != EFI_SUCCESS) {
-                printf("LoadImage Failed %ld\n", r);
+                printf("LoadImage Failed (%s)\n", efi_strerror(r));
                 continue;
             }
             r = bs->StartImage(h, &exitdatasize, NULL);

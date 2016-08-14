@@ -16,7 +16,7 @@
 
 #include <efi.h>
 #include <efilib.h>
-#include <goodies.h>
+#include <utils.h>
 
 #define PCBUFMAX 126
 // buffer is two larger to leave room for a \0 and room
