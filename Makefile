@@ -49,6 +49,7 @@ include build/build.mk
 # declare applications here
 #$(call efi_app, hello, hello.c)
 $(call efi_app, showmem, src/showmem.c)
+$(call efi_app, mnp, src/mnp.c)
 $(call efi_app, fileio, src/fileio.c)
 OSBOOT_FILES := src/osboot.c \
 				src/netboot.c \
